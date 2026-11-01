@@ -60,7 +60,7 @@ team member then picks one of: widen the allowed outcomes, rewrite as a new vers
 A case counts as reviewed with one approval and no open `pending`, recorded in `review`. Who
 reviews is assigned when the cases are written; until then `reviewer` stays `null`.
 
-No JSON cases, loaders, real datasets, examples, answers, or evaluation harnesses are
+No JSON cases, real datasets, examples, answers, or evaluation run harnesses are
 included yet. These directories are not part of the runtime package or its built distributions.
 
 Future cases derived from the same source must remain in one source group. Development and
