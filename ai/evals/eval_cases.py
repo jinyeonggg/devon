@@ -18,7 +18,7 @@ REVIEW_STATUSES = {"unreviewed", "approved", "pending", "invalid"}
 
 _INPUT_KEYS = {"case_id", "version", "control", "payload"}
 _EXPECTATION_KEYS = {"case_id", "version", "allowed", "forbidden", "grader_controls", "review"}
-_CONTROL_KEYS = {"kind", "split", "source_group", "synthetic"}
+_CONTROL_KEYS = {"kind", "split", "source_group_id", "synthetic"}
 _REVIEW_KEYS = {"status", "author", "reviewer", "reviewed_at", "pending_notes"}
 
 
@@ -32,7 +32,7 @@ class Case:
     version: int
     kind: str
     split: str
-    source_group: str
+    source_group_id: str
     payload: dict[str, Any]
     expectation: dict[str, Any]
 
@@ -84,8 +84,8 @@ def _check_control(name: str, control: Any) -> None:
     _check_keys(f"{name} control", control, _CONTROL_KEYS)
     if not _one_of(control["kind"], KINDS) or not _one_of(control["split"], SPLITS):
         raise CaseError(f"{name}: control kind or split is not allowed")
-    if not isinstance(control["source_group"], str) or not control["source_group"]:
-        raise CaseError(f"{name}: source_group must be a non-empty string")
+    if not isinstance(control["source_group_id"], str) or not control["source_group_id"]:
+        raise CaseError(f"{name}: source_group_id must be a non-empty string")
     if control["synthetic"] is not True:
         raise CaseError(f"{name}: only synthetic cases may live here")
 
@@ -136,15 +136,15 @@ def load_cases(root: Path) -> list[Case]:
                 inp["version"],
                 control["kind"],
                 control["split"],
-                control["source_group"],
+                control["source_group_id"],
                 inp["payload"],
                 expectations[stem],
             )
         )
     splits: dict[str, set[str]] = {}
     for case in cases:
-        splits.setdefault(case.source_group, set()).add(case.split)
+        splits.setdefault(case.source_group_id, set()).add(case.split)
     leaked = sorted(group for group, used in splits.items() if len(used) > 1)
     if leaked:
-        raise CaseError(f"source_group used in both dev and holdout: {leaked}")
+        raise CaseError(f"source_group_id used in both dev and holdout: {leaked}")
     return cases

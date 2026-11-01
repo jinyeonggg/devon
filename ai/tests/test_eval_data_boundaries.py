@@ -12,7 +12,7 @@ def _input(case_id="q-1", version=1, **control):
         "control": {
             "kind": "question",
             "split": "dev",
-            "source_group": "sg-1",
+            "source_group_id": "sg-1",
             "synthetic": True,
             **control,
         },
