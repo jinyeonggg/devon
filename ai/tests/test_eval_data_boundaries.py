@@ -145,3 +145,11 @@ def test_approved_by_other_person_with_date_loads(tmp_path):
     review = {"status": "approved", "author": "a", "reviewer": "b", "reviewed_at": "2026-11-01"}
     _pair(tmp_path, exp=_expectation(**review))
     assert load_cases(tmp_path)[0].expectation["review"]["status"] == "approved"
+
+
+def test_grader_control_output_must_be_a_string(tmp_path):
+    exp = _expectation()
+    exp["grader_controls"] = [{"kind": "allowed"}]
+    _pair(tmp_path, exp=exp)
+    with pytest.raises(CaseError, match="output"):
+        load_cases(tmp_path)

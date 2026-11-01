@@ -93,6 +93,8 @@ def _check_expectation(name: str, exp: dict[str, Any]) -> None:
     for item in exp["grader_controls"]:
         if not isinstance(item, dict) or item.get("kind") not in CONTROL_KINDS:
             raise CaseError(f"{name}: grader_controls kind is not allowed")
+        if not isinstance(item.get("output"), str):
+            raise CaseError(f"{name}: grader_controls output must be a string")
     review = exp["review"]
     if not isinstance(review, dict):
         raise CaseError(f"{name}: review must be an object")
