@@ -1,6 +1,6 @@
 """리포트 lazy 생성·조회(200/202/409).
 완료 면접에 답변 완료 턴이 있을 때만 생성한다. 생성 불가는 409 report_unavailable.
-이전 생성 실패 이력의 409 는 저장 위치가 명세에 없어 합의 전까지 구현하지 않는다.
+이전 생성 실패 이력(report:fail:{id}, report_generate worker 가 기록)이 있으면 자동 재생성 없이 409.
 재생성·수동 재시도·이의제기는 Sprint 2다.
 profile_summary 후속 enqueue 는 report_generate worker 몫이다.
 
@@ -9,6 +9,7 @@ docs/db-schema.md 리포트 절 / task-16
 
 import uuid
 from datetime import UTC, datetime
+from typing import NoReturn
 
 from arq.connections import ArqRedis
 from pydantic import ValidationError
@@ -32,6 +33,8 @@ from app.shared.enums import Reason
 
 # docs/redis-keys.md: report generation lock. worker 가 끝나기 전에 풀리면 중복 enqueue 가 난다.
 REPORT_LOCK_TTL_SECONDS = 5 * 60
+# 실패 이력: report_generate worker 가 코드를 남긴다. TTL 이 없어 자동 재생성이 없다.
+REPORT_FAIL_KEY = "report:fail:{interview_id}"
 RETRY_AFTER_SECONDS = 3
 logger = get_logger(__name__)
 
@@ -57,8 +60,16 @@ async def get_report(
         raise AppError(Reason.REPORT_UNAVAILABLE)
     if await queries.count_answered_turns(db, interview_id=interview.id) < 1:
         raise AppError(Reason.REPORT_UNAVAILABLE)
-    # TODO 없이 보류: 이전 report_generate 실패 이력 → 409 는 합의 후 추가한다 (PR 본문 참고).
+    if await _has_failure_history(redis, interview.id):
+        raise AppError(Reason.REPORT_UNAVAILABLE)
     return await _request_generation(redis, interview.id)
+
+
+async def _has_failure_history(redis: ArqRedis, interview_id: uuid.UUID) -> bool:
+    try:
+        return bool(await redis.exists(REPORT_FAIL_KEY.format(interview_id=interview_id)))
+    except RedisError:
+        raise AppError(Reason.INTERNAL_ERROR) from None
 
 
 async def _request_generation(redis: ArqRedis, interview_id: uuid.UUID) -> GeneratingResponse:
@@ -123,6 +134,6 @@ async def _build_report(
     )
 
 
-def _corrupt(report: InterviewReport, part: str) -> None:
+def _corrupt(report: InterviewReport, part: str) -> NoReturn:
     logger.error("report_row_invalid", report_id=str(report.id), part=part)
     raise AppError(Reason.INTERNAL_ERROR)
