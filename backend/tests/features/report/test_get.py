@@ -4,8 +4,12 @@
 """
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
+from sqlalchemy import delete
+
+from app.db.models import JobPosting, ReportScore
 
 from ..interview.factories import make_interview, make_repo, make_run, make_turn, make_user
 from .factories import make_disagreement, make_report
@@ -84,3 +88,77 @@ async def test_requires_login(client) -> None:
     response = await client.get(url(uuid.uuid4()))
     assert response.status_code == 401
     assert response.json()["error"]["reason"] == "unauthenticated"
+
+
+async def test_total_score_is_mean_of_scores_not_stored_value(client, db, ctx) -> None:
+    interview, _ = ctx
+    await make_report(db, interview, total_score=1)  # 저장값은 평균(75)과 다르다
+    await db.commit()
+
+    body = (await client.get(url(interview.id))).json()
+
+    assert body["totalScore"] == 75.0
+
+
+async def test_position_label_and_completed_at(client, db, ctx) -> None:
+    interview, _ = ctx
+    posting = await db.get(JobPosting, interview.job_posting_id)
+    posting.position = "백엔드 개발자"
+    posting.company_name = "토스뱅크"
+    interview.completed_at = datetime(2026, 9, 1, 15, 20, tzinfo=UTC)
+    await make_report(db, interview, generated_at=datetime(2026, 9, 2, tzinfo=UTC))
+    await db.commit()
+
+    body = (await client.get(url(interview.id))).json()
+
+    assert body["position"] == "백엔드 개발자"
+    assert body["positionLabel"] == "토스뱅크 백엔드 개발자"
+    assert body["completedAt"].startswith("2026-09-01T15:20:00")  # generated_at 이 아니다
+
+
+async def test_position_label_without_company(client, db, ctx) -> None:
+    interview, _ = ctx
+    posting = await db.get(JobPosting, interview.job_posting_id)
+    posting.position = "백엔드 개발자"
+    posting.company_name = None
+    await make_report(db, interview)
+    await db.commit()
+
+    body = (await client.get(url(interview.id))).json()
+
+    assert body["positionLabel"] == "백엔드 개발자"
+
+
+async def test_500_when_scores_are_not_six(client, db, ctx) -> None:
+    interview, _ = ctx
+    report = await make_report(db, interview)
+    await db.execute(
+        delete(ReportScore)
+        .where(ReportScore.report_id == report.id)
+        .execution_options(synchronize_session=False)
+    )
+    await db.commit()
+
+    response = await client.get(url(interview.id))
+
+    assert response.status_code == 500
+    assert response.json()["error"]["reason"] == "internal_error"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"feedback_json": [{"persona": "tech_lead"}]},
+        {"coverage_json": None},
+        {"coverage_json": {"totalRequirements": "x"}},
+    ],
+)
+async def test_500_when_feedback_or_coverage_is_malformed(client, db, ctx, overrides) -> None:
+    interview, _ = ctx
+    await make_report(db, interview, **overrides)
+    await db.commit()
+
+    response = await client.get(url(interview.id))
+
+    assert response.status_code == 500
+    assert response.json()["error"]["reason"] == "internal_error"
