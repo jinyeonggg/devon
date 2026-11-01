@@ -87,7 +87,8 @@ export default function AnalysisFailed() {
 
   const run = runQuery.data;
   const failureReason = run?.failureReason;
-  // 실패 사유는 200 응답 안의 값이라 전역 오류 처리가 보지 못한다. job 코드를 HTTP reason으로 넘긴다.
+  // 실패 사유는 200 응답 안의 값이라 전역 오류 처리가 보지 못한다.
+  // refreshMeIfTokenInvalid는 HTTP reason(github_token_invalid) 기준이라 job 코드 token_invalid를 변환해 넘긴다.
   useEffect(
     () => refreshMeIfTokenInvalid(failureReason === 'token_invalid' ? 'github_token_invalid' : null),
     [failureReason],
