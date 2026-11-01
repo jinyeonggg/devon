@@ -862,7 +862,6 @@ DB run의 `partial`은 FE `status: "failed"`로 매핑한다. 성공한 저장�
 | 값 | 화면 처리 | 재시도 |
 | --- | --- | --- |
 | `no_public_repo` | 안내만 — 재시도 버튼 숨김 | ❌ |
-| `user_not_found` | 안내만 | ❌ |
 | `rate_limited` | 대기 시간 안내 (`retryAfter`) | 시간 후 |
 | `token_invalid` | GitHub 재연동 강조 | 재연동 후 |
 | `jd_fetch_failed` | 공고 URL 입력창 강조 | ✅ |
@@ -1827,4 +1826,4 @@ Sprint 2 참고 흐름: 5c-v2 이의 제기 모달 제출 → 성공 시 `disagr
 | 2026-09-17 | #19의 **`202 Accepted`를 Failure → Response로 이동** (생성 중은 실패가 아님), `error.retryAfter`와 본문 최상위 `retryAfter`의 위치 차이 명시 |
 | 2026-09-22 | [공통 0003](../../spec/shared/decisions/0003-sprint1-session-auth.md): Sprint 1은 기존 Redis·HttpOnly `devon_session`·14일 sliding 세션으로 확정. JWT·refresh 및 #3은 Sprint 2로 이관. 기존 번호와 과거안은 보존하며 실제 인증 구현·검증은 후속 작업으로 구분 |
 | 2026-10-28 | **#24 `POST /interviews/{id}/abandon` 추가**, #10 `/me/interviews`에 시작 후 중단된 `abandoned` 포함, #20 재도전 허용을 `completed`와 시작 후 중단으로 확정, #10 정렬 기준 명시 — [공통 0009](../../spec/shared/decisions/0009-interview-abandon-transition.md) |
-| 2026-10-29 | #15 결과에 **`analyzedCount`·`failedCount`·`failedRepositories` 추가**, #15 레포 `errorCode` 표를 `repo_analyses.error_code`로 정정, #14 `failureReason`의 GitHub 토큰 무효를 job 코드 `token_invalid`로 정정, #22 실패 응답(`invalid_request`·`candidate_page_failed`·`not_ready`·`run_expired`) 명시 — [#144](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/issues/144) |
+| 2026-10-29 | #15 결과에 **`analyzedCount`·`failedCount`·`failedRepositories` 추가**, #15 레포 `errorCode` 표를 `repo_analyses.error_code`로 정정, #14 `failureReason`의 GitHub 토큰 무효를 job 코드 `token_invalid`로 정정, #14 `failureReason`에서 BE job 코드에 없는 `user_not_found` 삭제, #22 실패 응답(`invalid_request`·`candidate_page_failed`·`not_ready`·`run_expired`) 명시 — [#144](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/issues/144) |
