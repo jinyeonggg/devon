@@ -39,7 +39,7 @@
 | `interview_id`, `current_turn_id` | 서버가 식별한 현재 면접과 Turn; 첫 질문 전 Turn ID는 없음 |
 | `turn_no`, `total_turns` | 현재 질문 번호와 FIX 상한 9 |
 | `persona_counts` | 이미 확정·제시된 질문의 Persona별 횟수 |
-| `allowed_personas` | [공통 0004](../shared/decisions/0004-flexible-persona-allocation-restoration.md)에 따라 남은 턴으로 기술 최소 5턴·도메인과 HR 합산 최소 3턴을 충족할 수 있는 후보; 기술 목표는 6턴이며 첫 질문은 HR로 제한하고 Controller가 계산 |
+| `allowed_personas` | [공통 0008](../shared/decisions/0008-fixed-persona-allocation.md)에 따라 Controller가 확정·제시한 질문 수와 남은 할당으로 계산한 후보; 첫 질문은 HR, 이후에는 기술 6회·도메인 2회·HR 1회의 할당을 넘지 않고 정상 9턴 완주가 가능한 기술·도메인 Persona만 허용하며 순서는 고정하지 않음 |
 | `jd_requirements` | 저장된 ID, 원문, category, source field, tech_tags |
 | `repositories` | 선택 repo ID, 고정 ref, primary 여부, 성공 분석과 분석 범위 |
 | `history` | 질문·Persona·제출 답변·판정·참조 ID; 사실과 요약 구분 |
@@ -68,6 +68,10 @@
 실제 연결할 자료가 없는 질문의 evidence_refs·jd_requirement_ids는 빈 목록이다. 필수 근거 유실·준비 실패를 빈 목록으로 바꾸거나 ID를 지어내지 않는다. Question의 상세 직렬화와 공개 메시지 변환은 기존 서비스 책임이다.
 
 준비된 목적을 사용하는 [Director 기본 생성 경로](designs/2026-09-23-director-question-path.md)는 모델 출력에서 question_contract를 제외하고 입력 원본을 코드로 결합한다. 이 경로의 evidence_refs·jd_requirement_ids는 Context에 등록되었으면서 준비 계약 basis_refs의 같은 kind에 포함된 ID만 선택할 수 있다. 모델 원시 schema v2의 다섯 필드와 최종 Question의 기존 여섯 필드를 구분하며, 독립 검토가 정확한 문장·원본 계약에 결합되었는지도 검사한다.
+
+위 규칙은 호출자가 Contract를 준비하는 `generate_question`의 Accepted 경계다.
+Contract까지 planner가 생성하는 별도 `run_director`는 [후속 Proposed 설계](designs/2026-10-23-director-runtime.md#기존-생성-경로와-부분-대체-제안)에서 검토한다.
+신규 경로의 출력 Contract를 기존 생성기의 schema에 섞지 않으며, 부분 대체 채택 전 기존 경로의 승인을 바꾸지 않는다.
 
 ### Question Contract 저장 형식
 
@@ -150,6 +154,22 @@
 
 `retrieve`는 사용자 질문 Turn을 증가시키지 않는다. 결과를 반영한 후 유효한 ask 또는 허용 종료로 수렴해야 한다. 반복 budget 소진 시 질문을 검증 없이 발행하지 않는다. 내부 세 값의 채택으로 `context/AI.md`의 대문자 행동명이나 공개 WS enum을 추가하지 않는다.
 
+[후속 Proposed 실행 흐름](designs/2026-10-23-director-runtime.md#답변-분석과-조회-판단)은
+T3 결과 기반 규칙 함수로 조회를 고르고 Controller가 턴당 첫 허용 요청 1개만 실행하는 제안이다.
+미조회 요청은 한계로 보존하고, 필요한 보강 T3의 실패·예산 소진 뒤 T4나 정상 완료로 진행하지 않는다.
+기존 `retrieve` 값 자체를 새 모델 호출이나 무제한 조회의 승인으로 해석하지 않는다.
+
+### Director 후속 실행 경로
+
+Director의 후속 입력·출력 경계는 [질문 결정과 AI·BE 입력 설계](designs/2026-10-23-director-runtime.md)의 Proposed 검토 대상이다.
+`run_director`는 목적·질문 생성 1회와 독립 검토 1회에 공유 예산 총 2회를 사용하며 각 요청은 `max_attempts=1`이다.
+이 신규 경로는 검토 시도를 확보하기 위해 단계별 자동 재시도를 제한하며, 실패 후 질문을 확정하지 않는다.
+다른 task와 기존 생성 경로의 공통 gateway 재시도 규칙은 유지한다.
+검증한 결정·질문과 실제 생성 시도 metadata를 구분해 반환한다.
+현재 질문과 과거 문답은 답변 분석 입력에서 구분한다. 최초·보강 T3는 같은 2회 예산,
+후속 T4는 별도 예산이며 기존 flat `analysis`/`decision`과 공개 wire 구조를 유지한다.
+제한 조회 판단은 허용 repo·SHA·path를 확인한 요청을 반환하고 실제 I/O·저장은 Controller가 맡는다.
+
 [0008 결정](decisions/0008-ai-candidate-policy.md)은 전제·목적이 유효한 표현 오류는 재작성 후보, 거짓·stale·반복 전제나 목적은 재계획 후보, 공급된 제약에서 안전한 질문을 만들 수 없으면 유효 후보 없음으로 구분한다. 0008 자체는 내부 enum이나 추가 호출·정상 종료·사용자 복구·service 상태를 승인하지 않는다. 위 내부 enum의 후속 채택은 0014 범위에 한한다.
 
 ## Evidence와 ToolResult
@@ -184,10 +204,21 @@ tool_error만으로 확보 근거를 버리거나 사용자 감점·Director 전
 | `director_v1` | 유효한 다음 질문 또는 bounded Tool 요청 | Persona·9턴·권한·반복·전제 제약 | 기존 LLM 방향 유지 |
 | `report_v1` | 종합·Persona 피드백과 실제 문답 근거 | 미관찰 인정, 원문 불변, 확정한 공개 점수 구조 유지·미검수 세부 채점 기준의 임의 생성 금지 | 기존 LLM 방향 유지 |
 | `profile_summary_v1` | 기존 개인 역할의 자연어 요약; 언어·유형 통계는 별도 확정 집계 | 기존 자료의 역할 근거·사용자 진술과 확인 사실 구분, 통계 변경 금지 | 0019에 따라 역할 요약의 LLM 사용 복원, job·version 목록 유지 |
+| `domain_category_v2` | 공고 1건의 도메인 category 7종 중 하나와 근거 문단 ID(`etc`는 `null`) | category enum, non-etc의 ID는 이번 요청의 문단 ID여야 함(위반은 semantic 실패, 무재시도); 코드가 ID로 원문 복원; 실패는 `etc` | [0022](decisions/0022-domain-category-llm.md)·[0028](decisions/0028-domain-category-evidence-id.md)에 따라 LLM 호출, 공고당 1회. v1 prompt는 이력 |
 
-위 일곱 version 이름은 기존 FIX 목록이며 삭제하지 않는다. [0006 결정](decisions/0006-task-llm-usage-policy.md)의 Wanted 규칙 변환·프로필 통계 집계 비호출은 유지하되, 개인 역할의 자연어 요약은 [0019](decisions/0019-sprint1-profile-role-summary-restoration.md)에 따라 LLM으로 생성한다. version row만으로 호출 범위를 확대하지 않으며 deterministic 변환 version·출처 기록은 BE와 맞춘다. prompt version을 변환 version으로 재정의하거나 비호출 결과를 모델 실행 결과로 기록하지 않는다. 기존 role_summary·roleSummary 필드와 저장 구조를 유지하며 상세 입력·검증·연결은 구현 작업이다.
+기존 일곱 version 이름은 FIX 목록이며 삭제하지 않는다. `domain_category_v1`은 [0022](decisions/0022-domain-category-llm.md)로 추가했고 [0028](decisions/0028-domain-category-evidence-id.md)에서 `domain_category_v2`로 바꿨다. [0006 결정](decisions/0006-task-llm-usage-policy.md)의 Wanted 규칙 변환·프로필 통계 집계 비호출은 유지하되, 개인 역할의 자연어 요약은 [0019](decisions/0019-sprint1-profile-role-summary-restoration.md)에 따라 LLM으로 생성한다. version row만으로 호출 범위를 확대하지 않으며 deterministic 변환 version·출처 기록은 BE와 맞춘다. prompt version을 변환 version으로 재정의하거나 비호출 결과를 모델 실행 결과로 기록하지 않는다. 기존 role_summary·roleSummary 필드와 저장 구조를 유지하며 상세 입력·검증·연결은 구현 작업이다.
 
 L1의 생성 요약은 0006에 따라 프로젝트의 기능·역할을 설명하며 README·commit 수로 개인 기여를 추정하지 않는다. `role_summary`는 오래된 task 주석의 필드명으로, 유지·변경과 실제 저장/API 매핑은 BE와 합의한다. 기존 개인 역할 필드를 프로젝트 요약으로 임의 재해석하지 않으며, 근거 없는 개인 기여 값은 빈칸을 추측으로 채우지 않고 미확인으로 다룬다.
+
+### 문서 Claim의 후속 AI 모듈 계약
+
+이 계약은 독립 추출 모듈의 입력·출력·검증 범위다. Sprint 1 preview·`doc_extract`의 Claim 생성·저장이나 면접 사용을 활성화하는 결정이 아니다. [0029](decisions/0029-document-claims.md)의 내부 추출 설계와 [0030](decisions/0030-document-claims-validation-boundary.md)의 검증·연결 경계를 함께 따른다. 실제 연결·검증 현황은 [구현 기록](implementation.md)에서 관리한다.
+
+| prompt version | 성공 결과에 필요한 의미 | 검증 | 서비스 연결 조건 |
+| --- | --- | --- | --- |
+| `doc_claims_v1` | 포트폴리오 추출 텍스트의 Claim 최대 20개(`claim_text`, `claim_type` 4종, `tech_tags` 최대 5개)와 근거 줄 ID | 전체 응답의 schema를 먼저 검사하고, 통과한 응답의 줄 ID가 이번 요청에 있는지 검사한다. schema 실패는 공통 재시도 정책, 없는 ID는 semantic 실패·무재시도다. 한 항목 위반도 전체 거절하며 빈 Claim 목록은 성공이다. | BE 호출·prompt 등록·저장·처리 상태와 Director 소비 계약을 확인한 뒤 연결한다. 문서별 중복 호출 방지와 실패 기록은 호출자 책임이다. |
+
+`paragraph_no`는 입력에 사용한 저장 `extracted_text`에서 빈 줄을 제외한 0번 시작 줄 순번이다. PDF 페이지나 원본 DOCX 문단 번호가 아니며, 두 줄에 걸친 주장은 시작 줄을 가리킨다. 줄 ID의 존재와 원문 한 줄 복원은 Claim 내용·기술·수치의 충실성이나 진위를 보장하지 않는다. 문서 Claim을 현재 답변 인용을 검사하는 기존 `claim_checks`에 그대로 넣지 않는다.
 
 ## Model Gateway와 실패
 
@@ -206,6 +237,13 @@ JSON 객체·배열의 깊이는 루트 container 1부터 최대 64로 제한하
 `ModelResult.attempts`는 이번 `call_model` 실행에서 발생한 기록만 반환한다. 같은 `CallBudget`의 첫 결과가 `[1]`이면 다음 호출분은 `[2]`이며, 실제 호출 없는 예산 소진·종료 결과는 빈 tuple이다. attempt 번호와 총 2회 상한은 공유 작업 전체에서 유지한다. 저장자는 각 결과를 수집하고, 전송 실패로 같은 결과를 다시 저장하는 경우의 멱등성은 저장 계층에서 별도로 처리한다.
 
 raw output·model·prompt_version·schema_version·input/output tokens·latency·attempt·error를 필요한 범위에서 보존한다. [0018의 자료 선택](decisions/0018-existing-baseline-bulk-resolution.md#ai-l18-후속-내부-비교-검증-자료)에 따라 실제 문답·연결 분석·리포트·실패 기록은 필요한 팀 검수자의 후속 내부 비교 검증에도 보관·재사용한다. 최종 내부 비교 검증 뒤에도 보관하며 별도의 자동 삭제 기한은 두지 않는다. task별 영구 저장 위치·마스킹·실제 권한·복사본 및 파생 자료 관리는 구현에서 확인한다. 공개 로그에 원문을 출력하는 것으로 저장 요구사항을 대신하지 않는다.
+
+## 면접 실행 서비스의 후속 경계
+
+[면접 준비·답변·전송 실행 설계](designs/2026-10-25-interview-execution.md)는 Proposed 후속 설계다.
+준비 claim, 답변 commit 이후 전송, 분석 후 상태 전이와 WS 인계의 Controller 책임을 정의한다.
+기존 내부 입력 계약과 공개 wire를 대체하지 않으며, 선행 구현의 병합이나 전체 실행 완료를 뜻하지 않는다.
+준비 이벤트·실패 단계 재개·명시적 이탈 통지의 기존 요구와 보류 상태는 해당 설계의 한계를 함께 따른다.
 
 ## public 변환과 합의 경계
 

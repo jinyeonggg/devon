@@ -49,10 +49,13 @@ OAuth와 분석·면접 등 모든 기능은 같은 레지스트리를 사용한
 | 면접 준비 | `prep_failed` | 409 |
 | 면접 준비 | `repo_unreachable` | 409 |
 | 면접 준비 재시도 | `prep_in_progress` | 409 |
+| 면접 준비 재시도 | `session_limit_exceeded` | 409 |
 | 면접 준비 재시도 | `session_expired` | 410 |
 | 면접 조회 | `not_found` | 404 |
+| 재시도 | `not_found` | 404 |
 | 재시도 | `original_not_completed` | 409 |
 | 재시도 | `repository_unavailable` | 409 |
+| 리포트 | `not_found` | 404 |
 | 리포트 | `report_unavailable` | 409 |
 | 이의 제출 | `already_submitted` | 409 |
 | 공통 | `internal_error` | 500 |
@@ -67,7 +70,9 @@ GitHub가 만료·refresh 필드를 가진 유효한 토큰을 발급하면 `502
 > `github_token_invalid`는 DEVON 세션이 아니라 GitHub 연동 토큰이 무효·폐기된 상태다
 > (`github_accounts.token_status`가 `invalid`·`revoked`). long-lived 토큰 모델에 `expired` 상태는 없다. 화면은 로그인이 아니라 재연동으로 유도한다.
 > 2026-09-10 `token_invalid`에서 개명됐다. `frontend/docs/api-spec.md` #7·#8 및 변경 이력 참고.
-> 아래 `analysis_jobs.error_code`의 `token_invalid`는 API 표면이 아닌 내부 코드라 그대로 둔다.
+> 아래 `analysis_jobs.error_code`의 `token_invalid`는 HTTP 오류 reason과 다른 내부 코드다.
+> 분석 상태 조회의 `failureReason`에는 [공통 OpenAPI](../../spec/shared/contracts/openapi.yaml)에 따라
+> 내부 코드를 그대로 전달한다. `200` 상태 응답의 실패 사유를 HTTP `error.reason`과 혼동하지 않는다.
 
 ## 브라우저 OAuth callback 표시 코드
 
@@ -92,6 +97,11 @@ GitHub가 만료·refresh 필드를 가진 유효한 토큰을 발급하면 `502
 ## Job Error Code
 
 `analysis_jobs.error_code`:
+
+- `internal_error` (예상하지 못한 오류·실행 취소)
+- `run_expired` (실행 시작 전 만료)
+- `repo_unreachable`, `no_readme`, `input_too_large` (배치의 저장소 실패·부분 분석 원인)
+- `not_a_job_posting` (공고 검증 실패)
 
 - `no_public_repo`
 - `rate_limited`

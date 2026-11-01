@@ -19,6 +19,9 @@ VALID_SETTINGS = {
 }
 LLM_ENV_NAMES = (
     "OPENAI_API_KEY",
+    "PROXY_TOKEN",
+    "CHAT_PROXY_URL",
+    "OPENAI_MODEL",
     "LLM_DEFAULT_MODEL",
     "LLM_TIMEOUT_SECONDS",
     "LLM_MAX_OUTPUT_TOKENS",
@@ -212,7 +215,12 @@ def test_fixed_retry_setting_accepts_environment_string(monkeypatch):
 
 
 @pytest.mark.parametrize("with_template", [False, True])
-def test_app_import_lifespan_and_health_work_without_llm_credentials(tmp_path, with_template):
+@pytest.mark.parametrize(
+    "proxy_environment", [{}, {"PROXY_TOKEN": "fixture-proxy"}, {"CHAT_PROXY_URL": "invalid-url"}]
+)
+def test_app_import_lifespan_and_health_work_without_llm_credentials(
+    tmp_path, with_template, proxy_environment
+):
     backend_root = Path(__file__).resolve().parents[2]
     if with_template:
         (tmp_path / ".env").write_text(
@@ -221,7 +229,8 @@ def test_app_import_lifespan_and_health_work_without_llm_credentials(tmp_path, w
     # 인증 앱의 필수 설정은 준비하되, LLM 키·호출 상한 없이도 기동되는지 검증한다.
     environment = {
         **os.environ,
-        "PYTHONPATH": str(backend_root),
+        # 다른 worktree의 editable 설치를 물려받아도 이번 소스끼리 기동해야 한다.
+        "PYTHONPATH": os.pathsep.join((str(backend_root), str(backend_root.parent / "ai/src"))),
         "APP_ENV": "local",
         "FRONTEND_ORIGIN": "http://localhost:5173",
         "GITHUB_REDIRECT_URI": "http://localhost:5173/auth/github/callback",
@@ -233,6 +242,7 @@ def test_app_import_lifespan_and_health_work_without_llm_credentials(tmp_path, w
         "LLM_MAX_OUTPUT_TOKENS": "",
         "LLM_MAX_INPUT_BYTES": "",
         "LLM_MAX_RESPONSE_BYTES": "",
+        **proxy_environment,
     }
     completed = subprocess.run(
         [
