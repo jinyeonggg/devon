@@ -40,6 +40,16 @@ class CallBudget:
     _terminal: CallFailure | None = field(default=None, init=False, repr=False)
     _retry_not_before: float = field(default=0.0, init=False, repr=False)
 
+    @property
+    def remaining_attempts(self) -> int:
+        """같은 작업의 호출자가 사전 검사할 잔여량이며 시도 예약을 뜻하지 않는다."""
+        return 0 if self._terminal is not None else max(0, 2 - self._used)
+
+    @property
+    def terminal_failure(self) -> CallFailure | None:
+        """이미 종료한 같은 작업의 실패를 재호출 없이 보존한다."""
+        return self._terminal
+
 
 class _CallFailed(Exception):
     def __init__(self, failure: CallFailure, retry_delay: float | None = 0.0) -> None:
@@ -195,6 +205,7 @@ async def _attempt[T](
     api_key: SecretStr,
     body: bytes,
     attempt: int,
+    base_url: str,
 ) -> tuple[T | None, CallFailure | None, AttemptMetadata, float | None]:
     started = time.monotonic()
     model = request.prompt.model
@@ -206,10 +217,11 @@ async def _attempt[T](
     data: T | None = None
     retry_delay: float | None = 0.0
     try:
-        async with asyncio.timeout(request.limits.timeout_seconds):
+        async with asyncio.timeout(request.limits.timeout_seconds) as deadline:
             async with http.stream(
                 "POST",
-                "https://api.openai.com/v1/responses",
+                # 프록시의 tenant/v1 경로를 보존한다. 절대 경로 결합은 앞 경로를 지운다.
+                base_url.rstrip("/") + "/responses",
                 content=body,
                 headers={
                     "Authorization": f"Bearer {api_key.get_secret_value()}",
@@ -257,6 +269,9 @@ async def _attempt[T](
                         )
                     buffer.extend(chunk)
                 raw = bytes(buffer).decode("utf-8", errors="replace")
+        # 취소를 삼키는 transport가 만료 후 늦게 응답해도 성공으로 처리하지 않는다.
+        if deadline.expired():
+            raise TimeoutError
         # 공급자 응답 봉투의 손상과 그 안에 담긴 모델 출력의 JSON 오류를 구분한다.
         try:
             decoded = _json(bytes(buffer))
@@ -326,16 +341,21 @@ async def call_model[T](
     validator: Callable[[object], T],
     *,
     api_key: SecretStr,
+    base_url: str,
     http_client: httpx.AsyncClient | None = None,
     budget: CallBudget | None = None,
+    attempt_sink: list[AttemptMetadata] | None = None,
 ) -> ModelResult[T]:
     """모델 출력을 검증하고 원문을 로그에 출력하지 않은 채 호출 기록을 반환한다.
 
     주입한 HTTP client의 수명은 호출자가 관리한다. 기본 client에는 별도 전송 재시도가
     없으며, 부분 배치의 실패 항목을 재요청할 때도 같은 budget을 공유해야 한다.
+    base_url과 api_key는 BE 설정에서 함께 검증·선택한 값을 전달한다.
+    주소 누락으로 프록시 토큰이 공식 서버에 전송되지 않도록 기본 주소를 두지 않는다.
     attempts는 이번 함수 호출분만 반환하고, attempt 번호는 공유 budget 안에서 이어진다.
     재시도 대기도 timeout_seconds 이내다. 각 시도 timeout과 별개이며 전체 deadline은 아니다.
     서버 대기는 budget에 보존하며 재호출·취소 이후에도 다음 시도 전에 남은 시간을 기다린다.
+    attempt_sink에는 각 완료 시도를 즉시 추가해 후속 재시도·검토 중 취소에도 보존한다.
     취소와 프로그래밍 오류는 모델 실패로 바꾸지 않고 호출자에게 전파한다.
     """
     budget = budget if budget is not None else CallBudget()
@@ -393,8 +413,11 @@ async def call_model[T](
                     api_key,
                     body,
                     budget._used,
+                    base_url,
                 )
                 attempts.append(metadata)
+                if attempt_sink is not None:
+                    attempt_sink.append(metadata)
                 if failure is None:
                     return ModelResult(data=data, failure=None, attempts=tuple(attempts))
                 if failure.stage in {"semantic", "budget"} or retry_delay is None:

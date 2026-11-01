@@ -2,6 +2,14 @@
 상태: Proposed → Accepted → Superseded. 날짜·검토자·관련 PR을 실제 확인 후 기록한다.
 원본 기록은 삭제하지 않는다. README에는 현재 유효한 핵심 결정 5~10개를 목표로 연결하되 개수를 채우려고 결정을 만들지 않는다.
 
+## BE 내부 구현 결정
+
+- [0010 공개 저장소의 OAuth App 인증](0010-public-repository-app-auth.md): Proposed.
+  기존 앱 자격 증명으로 공개 데이터를 조회하며 사용자 token의 비공개 접근 범위를 확대하지 않는다.
+
+- [0005 Director 호출·저장과 고정 코드 Evidence 경계](0005-director-storage-boundary.md):
+  Proposed. 짧은 DB transaction, 호출 기록, 고정 SHA 근거의 검증·저장 경계를 정의한다.
+
 ## 작성 형식
 - 제목 / 상태 / 날짜 / 관련 PR / 검토자
 - 맥락: 해결할 문제
@@ -24,8 +32,8 @@
 
 ## 관련 공통 결정
 
-- [0002 로컬 정책 기준 채택](../../shared/decisions/0002-local-policy-baseline.md): 2026-09-22 사용자 결정. 포트폴리오 20MB와 공고 재사용 7일은 유지하며 면접 배분은 후속 0004로 대체한다. 실제 BE 연결·검증은 구현 작업으로 남긴다.
-- [0004 면접 질문 배분의 기존 기준 복원](../../shared/decisions/0004-flexible-persona-allocation-restoration.md): 2026-09-22 사용자 결정. 정상 9턴·첫 HR을 유지하고 기술 목표 6턴·최소 5턴, 도메인·HR 합산 최소 3턴과 개별 배분 비고정을 복원한다. DB·공개 API 구조는 유지하며 실제 횟수 제어는 구현·검증 대기다.
+- [0002 로컬 정책 기준 채택](../../shared/decisions/0002-local-policy-baseline.md): 2026-09-22 사용자 결정. 포트폴리오 20MB와 공고 재사용 7일은 유지하며 면접 배분은 0004를 거쳐 0008을 따른다. 실제 BE 연결·검증은 구현 작업으로 남긴다.
+- [0008 정상 면접의 Persona 배분을 6/2/1로 고정](../../shared/decisions/0008-fixed-persona-allocation.md): 2026-10-06 사용자 결정. 첫 HR을 포함한 기술 6회·도메인 2회·HR 1회이며 이후 기술·도메인 순서는 자율이다. DB·공개 API 구조를 유지하며 이번 반영은 문서에 한정한다. [0004](../../shared/decisions/0004-flexible-persona-allocation-restoration.md)는 대체된 이력으로 보존한다.
 - [0003 Sprint 1 세션 인증](../../shared/decisions/0003-sprint1-session-auth.md): 2026-09-22 사용자 결정. Redis `auth:sess:{sid}`·HttpOnly `devon_session`·14일 sliding 세션을 사용하고 JWT·refresh는 Sprint 2로 넘긴다. SQL `auth_sessions` 제외와 GitHub token의 암호화 DB 저장을 유지하며 실제 인증 연결은 구현·검증 대기다.
 
 ## Task 10 내부 구현 결정
@@ -34,6 +42,13 @@
   기존 순위 표시값, 검증된 기여도 입력, run별 분석 참조와 추천 갱신의 동시성 경계를 정리한다.
 - [0007 Task 10 재수집 실패 보존과 README 축약 캐시](0007-task10-collection-retry-and-partial-cache.md): Proposed.
   확인한 필드만 저장하고 같은 run의 성공을 보존한다. 축약 partial은 동일 입력일 때만 재사용한다.
+
+## Director 연결 기반의 게시 경계
+
+- [0008 Director 공통 보완의 게시 경계](0008-director-foundation-publication.md): Proposed.
+  기존 migration 이력을 보존하고 #82·#108·#127의 순차 반영마다 단일 head를 구성한다.
+  현재 최종 목표는 신규 `0005_director_foundation_merge`다. 두 선행 반영 전 Draft이며
+  검사 subprocess 소스 경로 보완과 AI 통합 검증 기록의 원본 위치를 설명한다.
 
 ## 관련 AI 결정
 
@@ -50,3 +65,7 @@
 - [0017 Sprint 1 추천 숫자 점수 보류](../../ai/decisions/0017-recommendation-score-deferral.md): 2026-09-22 사용자 결정. matchScore 필드는 null로 반환하고 기존 추천 표시·이유·상한·저장 위치를 유지한다. 선정 기준은 후속 0018을 따르며 실제 DB·응답 연결은 구현 시 검증한다.
 
 - [0018 기존안 일괄 유지와 질문·구현·후속 검토 분리](../../ai/decisions/0018-existing-baseline-bulk-resolution.md): 기존 기술 직접 비교·후보 순서에서 run 전체 최대 5개 추천을 채택한다. 기존 계약·저장·Worker·종료 흐름을 유지하며 상세 연결·실측은 구현 인계로 구분한다. 실제 문답과 연결 자료를 후속 내부 비교에 보관·재사용하고 최종 내부 비교 검증 뒤에도 보관한다. 별도의 자동 삭제 기한은 두지 않는다.
+
+## Task 11 내부 구현 결정
+
+- [0004 Task 11 분석 실행과 복구](0004-task11-run-execution.md): 사용자 승인 범위의 Accepted 설계 선택. fingerprint 제약, DB claim과 큐 중복 방어, 7단계·후보 page·SSE의 저장 경계 및 실행 전 작업 복구. 선행 구현과 별도 후속 보완이 필요한 Draft의 상태·검증 결과는 [Task 11 구현 기록](../implementation-task-11.md)에서 관리한다.
