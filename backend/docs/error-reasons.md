@@ -55,6 +55,7 @@ OAuth와 분석·면접 등 모든 기능은 같은 레지스트리를 사용한
 | 재시도 | `not_found` | 404 |
 | 재시도 | `original_not_completed` | 409 |
 | 재시도 | `repository_unavailable` | 409 |
+| 리포트 | `not_found` | 404 |
 | 리포트 | `report_unavailable` | 409 |
 | 이의 제출 | `already_submitted` | 409 |
 | 공통 | `internal_error` | 500 |
