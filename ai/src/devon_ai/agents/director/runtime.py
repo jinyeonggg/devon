@@ -394,6 +394,7 @@ def verification_decision(
 
     기존 근거가 충분하다고 분석한 주장은 제외한다. 원문 의미의 충분성과 현재
     판단에 대한 영향은 검증된 T3의 요청·목적에 의존한다. 조회·감점·종료는 하지 않는다.
+    요청은 0008 순서(이미 수집한 원문, 정확히 알려진 파일)로 정렬하며 BE는 앞에서부터 실행한다.
     """
     if type(context) is not c.Context:
         raise c.ContractError("schema", "Director context")
@@ -425,6 +426,26 @@ def verification_decision(
     )
     if not requests:
         return None
+    collected = {
+        (item.repository_id, item.git_ref, item.path)
+        for item in context.evidence
+        if item.path is not None
+    }
+    # 같은 단계는 확인 범위가 좁은 요청을 먼저 두고, 그 외에는 모델 순서를 유지한다(stable sort).
+    # 인접 후보(AI-L08, BE 미공급)와 주장 종류별 source 적합성(요청에 종류 필드 없음)은
+    # 반영하지 않는다. 두 입력이 계약에 생기면 정렬 키에 단계를 추가한다.
+    requests = tuple(
+        sorted(
+            requests,
+            key=lambda request: (
+                not all(
+                    (request.repository_id, request.git_ref, path) in collected
+                    for path in request.allowed_paths
+                ),
+                len(request.allowed_paths),
+            ),
+        )
+    )
     return c.validate_decision(
         c.DirectorDecision(
             "retrieve",

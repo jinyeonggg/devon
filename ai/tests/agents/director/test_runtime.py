@@ -231,7 +231,9 @@ def test_first_hr_policy_rejects_stale_history_without_a_model_call():
     assert provider.requests == []
 
 
-def checked_analysis(*, contribution="teammate", supported=False, needs=True):
+def checked_analysis(
+    *, contribution="teammate", supported=False, needs=True, request_paths=(("cache.py",),)
+):
     q = question()
     checked = c.validate_question(
         q,
@@ -257,14 +259,15 @@ def checked_analysis(*, contribution="teammate", supported=False, needs=True):
             ),
         ),
         needs,
-        (
+        tuple(
             c.VerificationRequest(
                 "캐시를 구현했습니다",
                 "현재 주장과 실제 구현의 비교",
                 "repo-1",
                 REF,
-                ("cache.py",),
-            ),
+                paths,
+            )
+            for paths in request_paths
         )
         if needs
         else (),
@@ -275,7 +278,9 @@ def checked_analysis(*, contribution="teammate", supported=False, needs=True):
         question=checked,
         answer_text="팀원이 캐시를 구현했습니다.",
         evidence_refs=frozenset({"ev-1"}),
-        allowed_locations=frozenset({("repo-1", REF, "cache.py")}),
+        allowed_locations=frozenset(
+            ("repo-1", REF, path) for paths in request_paths for path in paths
+        ),
     )
 
 
@@ -398,6 +403,25 @@ def test_verification_does_not_treat_a_stale_supported_reference_as_existing_evi
         allowed_locations=frozenset({("repo-1", REF, "cache.py")}),
     )
     assert decision.data.next_step == "retrieve"
+
+
+def test_verification_orders_collected_sources_then_narrower_known_files():
+    paths = (("service.py", "config.py"), ("router.py",), ("cache.py",), ("model.py",))
+    collected = c.Evidence(
+        "ev-1", "repo-1", REF, "code", "cache.py", None, "def cached(): ...", "read_file"
+    )
+    decision = runtime().verification_decision(
+        later_context(evidence=(collected,)),
+        checked_analysis(request_paths=paths),
+        allowed_locations=frozenset(("repo-1", REF, path) for group in paths for path in group),
+    )
+    # 이미 수집한 원문이 먼저, 같은 단계는 좁은 범위 먼저, 나머지는 모델 순서를 유지한다.
+    assert [request.allowed_paths for request in decision.data.tool_requests] == [
+        ("cache.py",),
+        ("router.py",),
+        ("model.py",),
+        ("service.py", "config.py"),
+    ]
 
 
 def test_prior_analyses_preserve_contribution_corrections_in_both_operations():
