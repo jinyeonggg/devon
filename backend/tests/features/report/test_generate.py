@@ -7,6 +7,7 @@ import pytest
 from redis.exceptions import RedisError
 
 from ..interview.factories import make_interview, make_repo, make_run, make_turn, make_user
+from .factories import make_report
 
 
 def url(interview_id) -> str:
@@ -76,3 +77,24 @@ async def test_enqueue_failure_releases_lock(client, ctx, enqueue, redis) -> Non
     enqueue.side_effect = None  # lock 이 풀려 있어 다음 요청이 다시 enqueue 한다
     assert (await client.get(url(interview.id))).status_code == 202
     assert enqueue.await_count == 2
+
+
+async def test_409_when_failure_history_exists(client, ctx, enqueue, redis) -> None:
+    interview, _ = ctx
+    await redis.set(f"report:fail:{interview.id}", "llm_failed")
+
+    response = await client.get(url(interview.id))
+
+    assert response.status_code == 409
+    assert response.json()["error"]["reason"] == "report_unavailable"
+    enqueue.assert_not_called()
+    assert await redis.exists(f"report:gen:{interview.id}") == 0
+
+
+async def test_failure_history_does_not_block_existing_report(client, db, ctx, redis) -> None:
+    interview, _ = ctx
+    await make_report(db, interview)
+    await db.commit()
+    await redis.set(f"report:fail:{interview.id}", "llm_failed")
+
+    assert (await client.get(url(interview.id))).status_code == 200
