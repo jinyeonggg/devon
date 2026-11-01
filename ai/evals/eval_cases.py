@@ -74,11 +74,15 @@ def _load_dir(folder: Path, keys: set[str]) -> dict[str, dict[str, Any]]:
     return by_stem
 
 
+def _one_of(value: Any, allowed: set[str]) -> bool:
+    return isinstance(value, str) and value in allowed  # a list or dict must not reach the set
+
+
 def _check_control(name: str, control: Any) -> None:
     if not isinstance(control, dict):
         raise CaseError(f"{name}: control must be an object")
     _check_keys(f"{name} control", control, _CONTROL_KEYS)
-    if control["kind"] not in KINDS or control["split"] not in SPLITS:
+    if not _one_of(control["kind"], KINDS) or not _one_of(control["split"], SPLITS):
         raise CaseError(f"{name}: control kind or split is not allowed")
     if not isinstance(control["source_group"], str) or not control["source_group"]:
         raise CaseError(f"{name}: source_group must be a non-empty string")
@@ -91,7 +95,7 @@ def _check_expectation(name: str, exp: dict[str, Any]) -> None:
         if not isinstance(exp[key], list):
             raise CaseError(f"{name}: {key} must be a list")
     for item in exp["grader_controls"]:
-        if not isinstance(item, dict) or item.get("kind") not in CONTROL_KINDS:
+        if not isinstance(item, dict) or not _one_of(item.get("kind"), CONTROL_KINDS):
             raise CaseError(f"{name}: grader_controls kind is not allowed")
         if not isinstance(item.get("output"), str):
             raise CaseError(f"{name}: grader_controls output must be a string")
@@ -99,12 +103,17 @@ def _check_expectation(name: str, exp: dict[str, Any]) -> None:
     if not isinstance(review, dict):
         raise CaseError(f"{name}: review must be an object")
     _check_keys(f"{name} review", review, _REVIEW_KEYS)
-    if review["status"] not in REVIEW_STATUSES:
+    if not _one_of(review["status"], REVIEW_STATUSES):
         raise CaseError(f"{name}: review status is not allowed")
+    if not isinstance(review["pending_notes"], list):
+        raise CaseError(f"{name}: pending_notes must be a list")
     if review["status"] == "approved":
-        author, reviewer = review["author"], review["reviewer"]
-        if not (author and reviewer and review["reviewed_at"]) or author == reviewer:
+        author, reviewer, reviewed_at = review["author"], review["reviewer"], review["reviewed_at"]
+        named = all(isinstance(v, str) and v for v in (author, reviewer, reviewed_at))
+        if not named or author == reviewer:
             raise CaseError(f"{name}: approved needs a reviewer other than the author and a date")
+        if review["pending_notes"]:
+            raise CaseError(f"{name}: approved cannot have open pending_notes")
 
 
 def load_cases(root: Path) -> list[Case]:

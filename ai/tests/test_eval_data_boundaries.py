@@ -153,3 +153,43 @@ def test_grader_control_output_must_be_a_string(tmp_path):
     _pair(tmp_path, exp=exp)
     with pytest.raises(CaseError, match="output"):
         load_cases(tmp_path)
+
+
+@pytest.mark.parametrize("bad", [["dev"], {"a": 1}, 3, None])
+def test_non_string_enum_values_raise_case_error_not_type_error(tmp_path, bad):
+    _pair(tmp_path, _input(kind=bad))
+    with pytest.raises(CaseError):
+        load_cases(tmp_path)
+
+
+@pytest.mark.parametrize("field", ["kind", "status"])
+def test_non_string_control_and_review_values_raise_case_error(tmp_path, field):
+    exp = _expectation()
+    if field == "kind":
+        exp["grader_controls"] = [{"kind": ["allowed"], "output": "x"}]
+    else:
+        exp["review"]["status"] = ["approved"]
+    _pair(tmp_path, exp=exp)
+    with pytest.raises(CaseError):
+        load_cases(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "review",
+    [
+        {"status": "approved", "author": 1, "reviewer": 2, "reviewed_at": 3},
+        {"status": "approved", "author": "a", "reviewer": "b", "reviewed_at": True},
+        {
+            "status": "approved",
+            "author": "a",
+            "reviewer": "b",
+            "reviewed_at": "2026-11-01",
+            "pending_notes": ["still open"],
+        },
+        {"status": "pending", "pending_notes": "not a list"},
+    ],
+)
+def test_approved_needs_strings_and_no_open_notes(tmp_path, review):
+    _pair(tmp_path, exp=_expectation(**review))
+    with pytest.raises(CaseError):
+        load_cases(tmp_path)
