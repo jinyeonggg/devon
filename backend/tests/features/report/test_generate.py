@@ -1,6 +1,6 @@
-"""GET /interviews/{id}/report 생성 흐름 — 202 / 409 / lock / enqueue 실패.
+"""GET /interviews/{id}/report 생성 흐름 — 202 / 409 / lock / enqueue 실패 / 실패 이력 409.
 
-실패 이력 409 는 저장 위치 합의 전이라 다루지 않는다. task-16
+task-16
 """
 
 import pytest
