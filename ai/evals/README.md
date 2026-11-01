@@ -47,6 +47,9 @@ mismatches are detected by the `case_id` and `version` inside the files.
 - `evals/eval_cases.py` loads the pairs and rejects orphans, duplicates, mismatched file names,
   unknown keys (so expectations cannot sit in an input file), non-synthetic cases, a source group
   used in both `dev` and `holdout`, and `approved` reviews that lack a reviewer other than the author.
+- `evals/grader_check.py` tries a grader on approved cases' control outputs and counts correct,
+  false accept, false reject, abstained and error per control kind. The grader never sees the
+  control kind. The expected verdict per kind is an author assumption pending team review.
 
 ## Case review (author proposal, pending team confirmation)
 
