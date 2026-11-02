@@ -41,6 +41,33 @@ test('레포 재선택은 기존 면접 abandon 후 새 면접을 만들고 뒤�
   await expect(page.getByRole('heading', { name: '중단된 면접이에요' })).toBeVisible();
 });
 
+test('abandon은 열린 면접 WS를 닫아 진행 화면이 중단된 면접 안내로 바뀐다', async ({ page }) => {
+  await page.goto(`/interview/${IN_PROGRESS}/session`);
+  // 답변 시작이 활성화되면 WS가 열린 상태다.
+  await expect(page.getByRole('button', { name: '답변 시작' })).toBeEnabled({ timeout: 15_000 });
+  // 다른 탭의 나가기처럼 화면 밖에서 abandon만 보낸다. 서버가 WS를 닫아야 화면이 상태를 다시 조회한다.
+  const status = await page.evaluate(
+    async (id) => (await fetch(`/api/interviews/${id}/abandon`, { method: 'POST' })).status,
+    IN_PROGRESS,
+  );
+  expect(status).toBe(204);
+  await expect(page.getByRole('heading', { name: '중단된 면접이에요' })).toBeVisible();
+});
+
+test('abandon과 엇갈린 마지막 답변 처리는 중단된 면접을 완료로 바꾸지 않는다', async ({ page }) => {
+  await page.goto('/home');
+  const status = await page.evaluate(async (id) => {
+    const url = '/src/mocks/db/interviews.ts';
+    const { abandonInterview, finishInterview, getInterview, interviewStatus } = await import(url);
+    const record = getInterview(id);
+    abandonInterview(record);
+    finishInterview(record);
+    return interviewStatus(record);
+  }, IN_PROGRESS);
+  // 공통 0009 §1: 한 번 abandoned가 된 면접은 다른 상태로 바뀌지 않는다.
+  expect(status).toBe('abandoned');
+});
+
 test('마이페이지 중단된 면접 행은 중단됨과 다시 도전하기를 보여준다', async ({ page }) => {
   await page.goto('/mypage');
   const row = page.getByRole('listitem').filter({ hasText: '중단됨' });

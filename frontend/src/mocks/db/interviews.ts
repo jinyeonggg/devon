@@ -233,6 +233,8 @@ export function abandonInterview(record: InterviewRecord, now = Date.now()) {
 
 /** 마지막 턴까지 답변이 끝났으면 면접을 종료 상태로 고정한다. */
 export function finishInterview(record: InterviewRecord) {
+  // abandon과 엇갈린 종료는 반영하지 않는다(공통 0009 §1).
+  if (record.fixedStatus === 'abandoned') return record;
   record.fixedStatus = 'completed';
   return record;
 }
