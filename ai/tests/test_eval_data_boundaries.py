@@ -320,3 +320,12 @@ def test_pair_without_history_is_rejected(tmp_path):
     _write_report_pair(tmp_path, strong=strong)
     with pytest.raises(CaseError, match="history"):
         load_cases(tmp_path)
+
+
+@pytest.mark.parametrize("missing", ["turn", "persona", "question", "answer"])
+def test_pair_history_turn_needs_all_fields(tmp_path, missing):
+    strong = _report_input("r-1", "대안을 비교했습니다")
+    del strong["payload"]["history"][0][missing]
+    _write_report_pair(tmp_path, strong=strong)
+    with pytest.raises(CaseError, match="history needs"):
+        load_cases(tmp_path)

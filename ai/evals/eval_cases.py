@@ -159,6 +159,13 @@ def _history(case: Case) -> list[dict[str, Any]]:
     turns_ok = isinstance(history, list) and all(isinstance(t, dict) for t in history)
     if not turns_ok or not history:
         raise CaseError(f"{case.case_id}: a pair case needs a non-empty payload.history list")
+    for turn in history:
+        if type(turn.get("turn")) is not int or not all(
+            isinstance(turn.get(k), str) for k in ("persona", "question", "answer")
+        ):
+            raise CaseError(
+                f"{case.case_id}: history needs int turn and str persona/question/answer"
+            )
     return list(history)
 
 
