@@ -389,13 +389,15 @@ def verification_decision(
     analysis: c.ContractChecked[c.AnswerAnalysis],
     *,
     allowed_locations: frozenset[Location],
-) -> c.ContractChecked[c.DirectorDecision] | None:
+) -> c.ContractChecked[c.DirectorDecision] | str:
     """현재 T3의 명시적 필요·영향 판단에서 허용된 추가 조회만 제안한다.
 
     기존 근거가 충분하다고 분석한 주장은 제외한다. 원문 의미의 충분성과 현재
     판단에 대한 영향은 검증된 T3의 요청·목적에 의존한다. 조회·감점·종료는 하지 않는다.
     수집한 경로만 다시 읽는 요청은 새 경로 요청 뒤로, 같은 단계는 좁은 범위 먼저 정렬하며
     BE는 앞에서부터 실행한다.
+    조회하지 않으면 미조회 사유 문자열을 반환하며 BE는 이를 정상 조회 후 미발견과 구분해
+    기존 reason_summary에 남긴다(0014). 허용 범위 밖 요청은 사유로 바꾸지 않고 거절한다.
     """
     if type(context) is not c.Context:
         raise c.ContractError("schema", "Director context")
@@ -413,7 +415,7 @@ def verification_decision(
             raise c.ContractError("semantic", "allowed location ref")
     value = analysis.data
     if not value.needs_verification:
-        return None
+        return "답변 분석이 추가 확인 불필요로 판단"
     registered = frozenset(ref.id for ref in _references(context, {}) if ref.kind == "evidence")
     supported = {
         claim.claim_text
@@ -426,7 +428,7 @@ def verification_decision(
         request for request in value.verification_requests if request.claim_text not in supported
     )
     if not requests:
-        return None
+        return "요청한 주장이 모두 등록 근거로 지지됨"
     collected = {
         (item.repository_id, item.git_ref, item.path)
         for item in context.evidence
