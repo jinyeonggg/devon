@@ -52,6 +52,47 @@ retrieval query, tool 입력에 들어가면 안 된다.
   기대 판정은 작성자의 가정이며 팀 확인이 필요하다. 승인됐지만 `grader_controls`가 비어 검사할 출력이
   없는 사례는 전체 수에는 남기고 `evaluated_cases`에서는 빼며 `excluded_cases`에 `no_controls`로 센다.
 
+## report 사례 (작성자 제안, 팀 확인 대기)
+
+`control.kind`가 `report`인 사례는 리포트 생성 결과를 평가한다. 서술 기대값은 다른 종류와 같게
+`allowed`/`forbidden`에 쓴다. 점수는 정확한 숫자가 아니라 같은 질문에 답변만 다른 두 사례의 **순서
+관계**로 검사한다. 점수 기준과 환산표는 `backend/scripts/seed_score_criteria.py`의 `rubric`과
+`LEVEL_SCORES`(0단계 0점, 1~4단계 20·45·70·90점)이며 팀 확정 전 제안이다.
+
+`payload`는 정상 면접 한 건 전체다.
+
+```json
+{"history": [{"turn": 1, "persona": "hr_manager", "question": "...", "answer": "..."}],
+ "evidence": [{"ref": "...", "path": "...", "lines": "...", "text": "..."}],
+ "task": "종합 피드백과 Persona별 피드백, 6개 key 점수를 쓰세요."}
+```
+
+- `history`는 정상 완료 면접의 9턴이다. 첫 질문은 `hr_manager`이고 현재 코드는 `tech_lead` 6턴,
+  `domain_lead` 2턴, `hr_manager` 1턴이다. 배분 정책 정본은 팀 결정 대기이며 결정되면 사례를 맞춘다.
+- `abandoned` 등 비정상 종료는 리포트를 만들지 않으므로 사례로 두지 않는다.
+
+점수 순서 관계는 `expectations`의 선택 필드 `pair`로 쓴다.
+
+```json
+"pair": {"pair_id": "rp-0001", "role": "stronger", "key": "technical_reasoning", "min_gap": 10}
+```
+
+- 같은 `pair_id`에 `stronger` 한 건과 `weaker` 한 건이 있어야 한다. 둘 다 `report` 사례이고
+  `split`, `source_group_id`, `key`, `min_gap`이 같다.
+- 두 사례는 질문·Persona·Turn·`evidence`·`task`가 같고 `answer`만 다르다(loader가 검사한다).
+- 통과 조건은 `stronger`의 `key` 점수가 `weaker`보다 `min_gap`점 이상 높은 것이다. 다른 key는 이
+  쌍에서 비교하지 않는다. `min_gap` 10은 임시 값이며 실행기로 점수 흔들림을 잰 뒤 다시 정한다.
+- 작성 규칙(검수자가 확인): 설계상 두 사례의 `key` 점수 차이가 `min_gap`의 두 배 이상이어야 한다.
+  점수는 해당 key를 평가하는 턴들의 평균이라고 가정한다. `technical_reasoning`·`problem_solving`·
+  `project_understanding`은 `tech_lead` 6턴, `company_job_fit`은 `domain_lead` 2턴,
+  `contribution_clarity`는 `hr_manager` 1턴이 근거이므로 근거 턴이 많은 key는 여러 턴의 답변을 함께
+  바꿔야 한다. 이 평균 방식은 아직 팀 확정 전이다.
+- 쌍을 만들 수 없는 사례는 `pair`를 생략한다. 이 사례는 순서 판정에서 빼고 건수를 따로 적으며
+  통과로 세지 않는다.
+- 모든 `report` 사례의 출력에는 순서 판정과 별도로 형식 검사를 한다: 6개 key가 모두 있고 key 점수와
+  `totalScore`가 0~100 정수이며, `totalScore`가 key 점수 평균과 1 이하로 다르다. 정수 반올림 규칙은
+  팀 확정 전이다.
+
 ## 사례 검수 (작성자 제안, 팀 확인 대기)
 
 사례를 쓴 뒤 모델을 돌리기 전에, 작성자가 아닌 사람이 허용·금지 결과가 원문과 승인된 정책에 맞는지
