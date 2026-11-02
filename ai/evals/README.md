@@ -116,8 +116,8 @@ retrieval query, tool 입력에 들어가면 안 된다.
 `uv run python evals/review_sheet.py [case_id ...]`로 만들며 결과는 무시되는 `ai/report/review-sheets/`에
 저장된다. 시트에는 정답이 있으므로 모델 입력에 쓰지 않는다.
 
-현재 사례는 `evidence` 6건(`e-0001`~`e-0006`), `question` 10건(`q-0001`~`q-0010`), `flow` 2건
-(`f-0001`, `f-0002`)이며 모두 `unreviewed`이다. 자료·근거 사례의 `payload`는 `question`과
+현재 사례는 `evidence` 6건(`e-0001`~`e-0006`), `question` 10건(`q-0001`~`q-0010`), `flow` 1건
+(`f-0001`)이며 모두 `unreviewed`이다. 자료·근거 사례의 `payload`는 `question`과
 `materials`(`ref`, `path`, `lines`, `text`)이고, 자료 `text`는 공개 저장소 원문이 아니라
 `fact-table.md`의 사실 구조만 본떠 새로 쓴 합성 내용이다. 질문·흐름 사례의 `payload`는 Director의
 입력을 단순화한 평가용 형식(`turn`, `allowed_personas`, `persona_left`, `history`, `latest_analysis`,
