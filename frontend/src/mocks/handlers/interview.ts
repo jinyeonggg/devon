@@ -199,6 +199,9 @@ export const interviewHandlers = [
       if (interviewStatus(record) !== 'preparing_failed') {
         return errorResponse(409, 'prep_failed', '준비 실패 상태에서만 다시 시도할 수 있어요.');
       }
+      if (hasActiveInterviewForRun(record.runId)) {
+        return errorResponse(409, 'session_limit_exceeded', '이미 진행 중인 면접이 있어요.');
+      }
 
       retryPrepare(record);
       await delay(200);
