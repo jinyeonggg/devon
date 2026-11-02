@@ -154,11 +154,30 @@ def _check_expectation(name: str, exp: dict[str, Any]) -> None:
             raise CaseError(f"{name}: approved cannot have open pending_notes")
 
 
+def _text(value: Any) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _check_contract(case_id: str, contract: Any) -> None:
+    """Question Contract subset a report payload carries (ai/evals/README.md)."""
+    keys = ("purpose", "required_points", "evaluation_scope")
+    points: Any = contract.get("required_points") if isinstance(contract, dict) else None
+    ok = isinstance(contract, dict) and set(contract) == set(keys)
+    ok = ok and _text(contract["purpose"]) and _text(contract["evaluation_scope"])
+    ok = ok and isinstance(points, list) and bool(points)
+    ok = ok and all(
+        isinstance(p, dict) and set(p) == {"key", "description"} and all(map(_text, p.values()))
+        for p in points
+    )
+    if not ok or len({p["key"] for p in points}) != len(points):
+        raise CaseError(f"{case_id}: history turn needs a valid question_contract")
+
+
 def _history(case: Case) -> list[dict[str, Any]]:
     history = case.payload.get("history")
     turns_ok = isinstance(history, list) and all(isinstance(t, dict) for t in history)
     if not turns_ok or not history:
-        raise CaseError(f"{case.case_id}: a pair case needs a non-empty payload.history list")
+        raise CaseError(f"{case.case_id}: a report case needs a non-empty payload.history list")
     for turn in history:
         if type(turn.get("turn")) is not int or not all(
             isinstance(turn.get(k), str) for k in ("persona", "question", "answer")
@@ -166,6 +185,14 @@ def _history(case: Case) -> list[dict[str, Any]]:
             raise CaseError(
                 f"{case.case_id}: history needs int turn and str persona/question/answer"
             )
+    numbers = [turn["turn"] for turn in history]
+    for turn in history:
+        _check_contract(case.case_id, turn.get("question_contract"))
+        follows = turn.get("follows")
+        if "follows" in turn and (
+            type(follows) is not int or follows not in numbers or follows >= turn["turn"]
+        ):
+            raise CaseError(f"{case.case_id}: follows must name an earlier turn")
     return list(history)
 
 
@@ -228,6 +255,9 @@ def load_cases(root: Path) -> list[Case]:
                 expectations[stem],
             )
         )
+    for case in cases:
+        if case.kind == "report":
+            _history(case)
     splits: dict[str, set[str]] = {}
     for case in cases:
         splits.setdefault(case.source_group_id, set()).add(case.split)

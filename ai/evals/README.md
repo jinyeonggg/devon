@@ -62,13 +62,21 @@ retrieval query, tool 입력에 들어가면 안 된다.
 `payload`는 정상 면접 한 건 전체다.
 
 ```json
-{"history": [{"turn": 1, "persona": "hr_manager", "question": "...", "answer": "..."}],
+{"history": [{"turn": 1, "persona": "hr_manager", "question": "...", "answer": "...",
+              "question_contract": {"purpose": "...",
+                                    "required_points": [{"key": "...", "description": "..."}],
+                                    "evaluation_scope": "..."}}],
  "evidence": [{"ref": "...", "path": "...", "lines": "...", "text": "..."}],
  "task": "종합 피드백과 Persona별 피드백, 6개 key 점수를 쓰세요."}
 ```
 
-- `history`는 정상 완료 면접의 9턴이다. 첫 질문은 `hr_manager`이고 현재 코드는 `tech_lead` 6턴,
-  `domain_lead` 2턴, `hr_manager` 1턴이다. 배분 정책 정본은 팀 결정 대기이며 결정되면 사례를 맞춘다.
+- `history`는 정상 완료 면접의 9턴이다. 첫 질문은 `hr_manager`이고 `tech_lead` 6턴, `domain_lead` 2턴,
+  `hr_manager` 1턴이다(공통 ADR 0008).
+- 턴마다 `question_contract`가 있어야 한다. 질문을 하기 전에 정한 질문 목적(`purpose`), 요구한 내용
+  (`required_points`, key는 질문 안에서 고유), 평가 범위(`evaluation_scope`)이며, 점수 판정이 묻지 않은
+  key를 낮게 매기지 않도록 하는 근거다. 실제 Question Contract의 `assumptions`·`basis_refs`는 평가용
+  형식에서 뺐다. loader가 모든 `report` 사례에서 이 형식을 검사한다.
+- 턴의 선택 필드 `follows`는 그 턴이 후속 질문인 이전 턴 번호다. 있으면 더 앞선 실제 턴이어야 한다.
 - `abandoned` 등 비정상 종료는 리포트를 만들지 않으므로 사례로 두지 않는다.
 
 점수 순서 관계는 `expectations`의 선택 필드 `pair`로 쓴다.
