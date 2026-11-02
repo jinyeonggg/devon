@@ -1,4 +1,4 @@
-"""구조 열거는 항목·깊이·요청 상한에서 멈추고 미방문 범위를 한계로 전달한다."""
+"""구조 열거는 항목·깊이·요청 상한에서 멈추고 미방문 범위와 읽지 않은 항목을 한계로 전달한다."""
 
 from uuid import UUID
 
@@ -112,3 +112,26 @@ async def test_request_budget_without_candidates_fails_instead_of_empty_success(
     with pytest.raises(EvidenceReadError) as error:
         await _enumerate(trees, max_requests=1)
     assert error.value.code == "evidence_budget_exhausted"
+
+
+async def test_oversized_and_non_regular_entries_are_skipped_with_limitations():
+    root = "a" * 40
+    trees = {
+        root: [
+            _blob("main.py"),
+            dict(_blob("data.json"), size=101),
+            dict(_blob("run.sh"), mode="100755", size=100),
+            dict(_blob("link"), mode="120000"),
+            dict(path="vendor", mode="160000", type="commit", sha="d" * 40),
+        ]
+    }
+    _, files, limitations = await _enumerate(
+        trees, max_requests=10, director_prepare_max_file_bytes=100
+    )
+    # 크기 상한을 넘는 파일과 일반 파일이 아닌 항목은 후보에서 빼고 이유를 남긴다.
+    assert files == ("main.py", "run.sh")
+    assert limitations == [
+        "파일 크기 상한으로 원문을 읽지 않았습니다: data.json",
+        "일반 파일이 아닌 항목은 읽지 않았습니다: link",
+        "일반 파일이 아닌 항목은 읽지 않았습니다: vendor",
+    ]
