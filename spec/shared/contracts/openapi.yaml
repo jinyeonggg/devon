@@ -64,6 +64,9 @@ paths:
     get:
       operationId: getHome
       summary: Home dashboard
+      description: >-
+        403 github_token_invalid is returned when the linked GitHub token is no longer
+        valid. The client shows the GitHub re-link banner.
       responses:
         '200':
           description: Home panel
@@ -72,6 +75,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/HomeResponse'
         '401':
+          $ref: '#/components/responses/Error'
+        '403':
           $ref: '#/components/responses/Error'
   /me/interviews:
     get:
@@ -149,6 +154,10 @@ paths:
         skipped rather than failed.
         postingUrl is required. If it is omitted, null, or blank, the server
         returns 400 with reason posting_url_required.
+        403 github_token_invalid is returned when GitHub is not linked or the linked
+        token is no longer valid. 409 is returned with reason run_in_progress
+        (error.details.runId is the existing run) or document_extract_failed (the
+        selected document failed text extraction).
       requestBody:
         required: true
         content:
@@ -170,6 +179,8 @@ paths:
         '400':
           $ref: '#/components/responses/Error'
         '401':
+          $ref: '#/components/responses/Error'
+        '403':
           $ref: '#/components/responses/Error'
         '409':
           $ref: '#/components/responses/Error'
