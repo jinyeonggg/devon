@@ -43,6 +43,12 @@ class RoleSummaryCallError(ProfileSummaryError):
     code = "role_summary_call_failed"
 
 
+class RoleEvidenceMissingError(ProfileSummaryError):
+    """면접 진술이 없으면 역할을 추측해 채우지 않고 실패한다."""
+
+    code = "role_evidence_missing"
+
+
 def based_repo_ids(repo_ids: Iterable[uuid.UUID]) -> list[uuid.UUID]:
     """중복 제거 후 정렬한 저장소 id. 재생성 판정 키라서 순서가 흔들리면 안 된다."""
     return sorted(set(repo_ids))
@@ -58,12 +64,12 @@ def aggregate_languages(
     """
     if not languages_by_repo:
         raise LanguageDataMissingError("no repositories")
-    totals: Counter[str] = Counter()
+    totals: dict[str, float] = {}
     for languages in languages_by_repo.values():
         sizes = _valid_sizes(languages)
         whole = sum(sizes.values())
         for name, size in sizes.items():
-            totals[name] += size / whole
+            totals[name] = totals.get(name, 0.0) + size / whole
     count = len(languages_by_repo)
     ratios = {name: share / count * 100 for name, share in totals.items()}
     return [
