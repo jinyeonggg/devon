@@ -18,6 +18,9 @@ REVIEW_STATUSES = {"unreviewed", "approved", "pending", "invalid"}
 
 _INPUT_KEYS = {"case_id", "version", "control", "payload"}
 _EXPECTATION_KEYS = {"case_id", "version", "allowed", "forbidden", "grader_controls", "review"}
+_EXPECTATION_OPTIONAL = frozenset(
+    {"source_fact"}
+)  # fact-table id the case was modeled on, for reviewers
 _CONTROL_KEYS = {"kind", "split", "source_group_id", "synthetic"}
 _REVIEW_KEYS = {"status", "author", "reviewer", "reviewed_at", "pending_notes"}
 
@@ -41,13 +44,17 @@ class Case:
         return copy.deepcopy(self.payload)
 
 
-def _check_keys(name: str, data: dict[str, Any], keys: set[str]) -> None:
-    extra, missing = sorted(set(data) - keys), sorted(keys - set(data))
+def _check_keys(
+    name: str, data: dict[str, Any], keys: set[str], optional: frozenset[str] = frozenset()
+) -> None:
+    extra, missing = sorted(set(data) - keys - optional), sorted(keys - set(data))
     if extra or missing:
         raise CaseError(f"{name}: unexpected keys {extra}, missing keys {missing}")
 
 
-def _load_dir(folder: Path, keys: set[str]) -> dict[str, dict[str, Any]]:
+def _load_dir(
+    folder: Path, keys: set[str], optional: frozenset[str] = frozenset()
+) -> dict[str, dict[str, Any]]:
     by_stem: dict[str, dict[str, Any]] = {}
     seen: dict[tuple[str, int], str] = {}
     for path in sorted(folder.glob("*.json")):
@@ -57,7 +64,7 @@ def _load_dir(folder: Path, keys: set[str]) -> dict[str, dict[str, Any]]:
             raise CaseError(f"{path.name}: {exc}") from exc
         if not isinstance(data, dict):
             raise CaseError(f"{path.name}: top level must be an object")
-        _check_keys(path.name, data, keys)
+        _check_keys(path.name, data, keys, optional)
         case_id, version = data["case_id"], data["version"]
         if not isinstance(case_id, str) or type(version) is not int:
             raise CaseError(f"{path.name}: case_id must be a string and version an integer")
@@ -99,6 +106,9 @@ def _check_expectation(name: str, exp: dict[str, Any]) -> None:
             raise CaseError(f"{name}: grader_controls kind is not allowed")
         if not isinstance(item.get("output"), str):
             raise CaseError(f"{name}: grader_controls output must be a string")
+    fact = exp.get("source_fact", "x")
+    if not isinstance(fact, str) or not fact:
+        raise CaseError(f"{name}: source_fact must be a non-empty string")
     review = exp["review"]
     if not isinstance(review, dict):
         raise CaseError(f"{name}: review must be an object")
@@ -121,7 +131,7 @@ def _check_expectation(name: str, exp: dict[str, Any]) -> None:
 def load_cases(root: Path) -> list[Case]:
     """Load every input/expectation pair under root, or raise CaseError."""
     inputs = _load_dir(root / "inputs", _INPUT_KEYS)
-    expectations = _load_dir(root / "expectations", _EXPECTATION_KEYS)
+    expectations = _load_dir(root / "expectations", _EXPECTATION_KEYS, _EXPECTATION_OPTIONAL)
     orphans = sorted(set(inputs) ^ set(expectations))
     if orphans:
         raise CaseError(f"unpaired or mismatched id/version: {orphans}")
