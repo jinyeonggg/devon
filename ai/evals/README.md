@@ -69,6 +69,12 @@ retrieval query, tool 입력에 들어가면 안 된다.
 
 그 사람이 실제로 확인하기 전에는 `reviewer`를 `null`로 둔다.
 
+검수자가 JSON과 사실표를 오가지 않도록 사례마다 한 장짜리 검수 시트를 만든다. 기대값 파일의 선택
+필드 `source_fact`(예: `F-R1-001`)가 `fact-table.md`의 항목을 가리키고, 시트에는 모델이 받는 것, 원본
+사실, 정답 기준, 채점기 시험용 가짜 답, 판단할 질문 4개가 담긴다. `ai/`에서
+`uv run python evals/review_sheet.py [case_id ...]`로 만들며 결과는 무시되는 `ai/report/review-sheets/`에
+저장된다. 시트에는 정답이 있으므로 모델 입력에 쓰지 않는다.
+
 현재 사례는 `evidence` 6건(`e-0001`~`e-0006`)이며 모두 `unreviewed`이다. `evidence`의 `payload`는
 `question`과 `materials`(`ref`, `path`, `lines`, `text`)이고, 자료 `text`는 공개 저장소 원문이 아니라
 `fact-table.md`의 사실 구조만 본떠 새로 쓴 합성 내용이다. 실제 채점기와 평가 실행 harness는 없다. 이
