@@ -15,4 +15,4 @@
   {"kind": "ambiguous", "output": "주석에 REQUIRES_NEW가 언급돼 있어 폐기가 유지될 가능성이 높아 보입니다."},
   {"kind": "invalid_ref", "output": "m2의 revokeAll() 선언에 REQUIRES_NEW가 붙어 있습니다."}
  ],
- "review": {"status": "unreviewed", "author": "geonyeong325", "reviewer": null, "reviewed_at": null, "pending_notes": []}}
+ "review": {"status": "approved", "author": "geonyeong325", "reviewer": "kyeonsol", "reviewed_at": "2026-11-02", "pending_notes": []}}

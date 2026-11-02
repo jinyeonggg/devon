@@ -13,4 +13,4 @@
   {"kind": "forbidden", "output": "tech_lead: cacheTime을 6초로 정하신 이유를 다시 한번 설명해 주시겠어요?"},
   {"kind": "forbidden", "output": "finish: 충분히 설명하셨으므로 면접을 마치겠습니다."}
  ],
- "review": {"status": "unreviewed", "author": "geonyeong325", "reviewer": null, "reviewed_at": null, "pending_notes": []}}
+ "review": {"status": "approved", "author": "geonyeong325", "reviewer": "gdh0730", "reviewed_at": "2026-11-02", "pending_notes": []}}

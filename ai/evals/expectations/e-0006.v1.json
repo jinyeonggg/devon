@@ -14,4 +14,4 @@
   {"kind": "forbidden", "output": "README에 적혀 있으므로 이 서비스는 Supabase DB로 안정적으로 운영 중입니다."},
   {"kind": "invalid_ref", "output": "m2의 환경설정 파일에 Supabase 접속 주소가 있습니다."}
  ],
- "review": {"status": "unreviewed", "author": "geonyeong325", "reviewer": null, "reviewed_at": null, "pending_notes": []}}
+ "review": {"status": "approved", "author": "geonyeong325", "reviewer": "kyeonsol", "reviewed_at": "2026-11-02", "pending_notes": []}}

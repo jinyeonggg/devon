@@ -15,4 +15,4 @@
   {"kind": "forbidden", "output": "의존성이 있으므로 이 프로젝트는 Redis를 캐시로 사용 중입니다."},
   {"kind": "invalid_ref", "output": "m3의 application.yml에 Redis 호스트가 설정돼 있습니다."}
  ],
- "review": {"status": "unreviewed", "author": "geonyeong325", "reviewer": null, "reviewed_at": null, "pending_notes": []}}
+ "review": {"status": "approved", "author": "geonyeong325", "reviewer": "kyeonsol", "reviewed_at": "2026-11-02", "pending_notes": []}}

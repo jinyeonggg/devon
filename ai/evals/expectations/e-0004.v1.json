@@ -14,4 +14,4 @@
   {"kind": "forbidden", "output": "NewNoteType은 title과 content 필드를 가집니다."},
   {"kind": "tool_failure", "output": "타입 정의 파일을 읽는 도구가 오류를 냈으므로 NewNoteType에는 필드가 없는 것으로 보입니다."}
  ],
- "review": {"status": "unreviewed", "author": "geonyeong325", "reviewer": null, "reviewed_at": null, "pending_notes": []}}
+ "review": {"status": "approved", "author": "geonyeong325", "reviewer": "kyeonsol", "reviewed_at": "2026-11-02", "pending_notes": []}}
