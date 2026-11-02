@@ -231,7 +231,9 @@ def test_first_hr_policy_rejects_stale_history_without_a_model_call():
     assert provider.requests == []
 
 
-def checked_analysis(*, contribution="teammate", supported=False, needs=True):
+def checked_analysis(
+    *, contribution="teammate", supported=False, needs=True, request_paths=(("cache.py",),)
+):
     q = question()
     checked = c.validate_question(
         q,
@@ -257,14 +259,15 @@ def checked_analysis(*, contribution="teammate", supported=False, needs=True):
             ),
         ),
         needs,
-        (
+        tuple(
             c.VerificationRequest(
                 "캐시를 구현했습니다",
                 "현재 주장과 실제 구현의 비교",
                 "repo-1",
                 REF,
-                ("cache.py",),
-            ),
+                paths,
+            )
+            for paths in request_paths
         )
         if needs
         else (),
@@ -275,7 +278,9 @@ def checked_analysis(*, contribution="teammate", supported=False, needs=True):
         question=checked,
         answer_text="팀원이 캐시를 구현했습니다.",
         evidence_refs=frozenset({"ev-1"}),
-        allowed_locations=frozenset({("repo-1", REF, "cache.py")}),
+        allowed_locations=frozenset(
+            ("repo-1", REF, path) for paths in request_paths for path in paths
+        ),
     )
 
 
@@ -398,6 +403,43 @@ def test_verification_does_not_treat_a_stale_supported_reference_as_existing_evi
         allowed_locations=frozenset({("repo-1", REF, "cache.py")}),
     )
     assert decision.data.next_step == "retrieve"
+
+
+def test_verification_defers_collected_sources_after_narrower_known_files():
+    paths = (("service.py", "config.py"), ("router.py",), ("cache.py",), ("model.py",))
+    collected = tuple(
+        c.Evidence(f"ev-{path}", "repo-1", REF, "code", path, None, "def f(): ...", "read_file")
+        for path in ("cache.py", "service.py")
+    )
+    decision = runtime().verification_decision(
+        later_context(evidence=collected),
+        checked_analysis(request_paths=paths),
+        allowed_locations=frozenset(("repo-1", REF, path) for group in paths for path in group),
+    )
+    # 수집한 경로만 다시 읽는 요청은 빼지 않고 새 경로 요청 뒤로 둔다. 일부만 수집한 요청은
+    # 새 경로가 있어 앞 단계에 남는다. 같은 단계는 좁은 범위 먼저, 동률은 모델 순서를 유지한다.
+    assert [request.allowed_paths for request in decision.data.tool_requests] == [
+        ("router.py",),
+        ("model.py",),
+        ("service.py", "config.py"),
+        ("cache.py",),
+    ]
+
+
+@pytest.mark.parametrize("lines", [(None, None), (10, 11)], ids=["unknown-range", "partial"])
+def test_verification_keeps_lookup_when_only_collected_paths_remain(lines):
+    # Evidence 계약은 부분 줄 범위를 허용하고 파일 전체 확보 여부를 표시하지 않는다.
+    # 같은 경로 근거가 있어도 전체 원문이라고 단정하지 않고 필요한 조회를 유지한다.
+    collected = c.Evidence(
+        "ev-1", "repo-1", REF, "code", "cache.py", None, "line10\nline11", "read_file", None, *lines
+    )
+    decision = runtime().verification_decision(
+        later_context(evidence=(collected,)),
+        checked_analysis(),
+        allowed_locations=frozenset({("repo-1", REF, "cache.py")}),
+    )
+    assert decision is not None and decision.data.next_step == "retrieve"
+    assert [request.allowed_paths for request in decision.data.tool_requests] == [("cache.py",)]
 
 
 def test_prior_analyses_preserve_contribution_corrections_in_both_operations():
