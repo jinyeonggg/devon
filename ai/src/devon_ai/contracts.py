@@ -1176,6 +1176,87 @@ class DomainPostingInput(_Contract):
     preferred_points: tuple[str, ...]
 
 
+ScoreKeyId = Literal[
+    "project_understanding",
+    "technical_reasoning",
+    "problem_solving",
+    "communication",
+    "contribution_clarity",
+    "company_job_fit",
+]
+ScoreLevel = Literal[0, 1, 2, 3, 4, "not_applicable"]
+
+# Persona가 평가 후보로 삼는 key. 작성자 제안이며 팀 확인 전이다(후보 밖 key는 모델이 만들 수 없다).
+SCORE_CANDIDATE_KEYS: dict[PersonaId, tuple[ScoreKeyId, ...]] = {
+    "tech_lead": (
+        "project_understanding",
+        "technical_reasoning",
+        "problem_solving",
+        "communication",
+    ),
+    "domain_lead": ("company_job_fit", "communication"),
+    "hr_manager": ("contribution_clarity", "communication"),
+}
+
+
+@dataclass(frozen=True)
+class ScoreTurn(_Contract):
+    """점수 판정 입력의 확정 문답 한 턴. 질문 당시의 Question Contract를 함께 둔다."""
+
+    turn_id: str
+    persona: PersonaId
+    question: str
+    answer: str
+    question_contract: QuestionContract
+
+
+@dataclass(frozen=True)
+class RubricLevel(_Contract):
+    key: ScoreKeyId
+    level: int
+    text: str
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if not 0 <= self.level <= 4:
+            raise ContractError("schema", "rubric level")
+
+
+@dataclass(frozen=True)
+class ScoreJudgment(_Contract):
+    turn_id: str
+    key: ScoreKeyId
+    level: ScoreLevel
+
+
+@dataclass(frozen=True)
+class ScoreJudgments(_Contract):
+    judgments: tuple[ScoreJudgment, ...]
+
+
+def validate_score_judgments(
+    candidate: ScoreJudgments, *, turns: tuple[ScoreTurn, ...]
+) -> ContractChecked[ScoreJudgments]:
+    """(턴, 후보 key) 쌍이 정확히 한 번씩 있고 모든 key에 점수가 있는 판정만 통과시킨다.
+
+    판정 가능한 턴이 하나도 없는 key는 기본 점수를 만들지 않고 semantic 실패로 끝낸다.
+    """
+    _convert(ScoreJudgments, candidate, "score judgments", wire=False)
+    _convert(tuple[ScoreTurn, ...], turns, "turns", wire=False)
+    if not turns:
+        raise ContractError("semantic", "turns")
+    _unique(tuple(turn.turn_id for turn in turns), "turn_id")
+    expected = {(t.turn_id, key) for t in turns for key in SCORE_CANDIDATE_KEYS[t.persona]}
+    pairs = tuple((item.turn_id, item.key) for item in candidate.judgments)
+    _unique(pairs, "judgment")
+    if set(pairs) != expected:
+        raise ContractError("semantic", "judgment pairs")
+    scored = {item.key for item in candidate.judgments if item.level != "not_applicable"}
+    if scored != set(get_args(ScoreKeyId)):
+        raise ContractError("semantic", "unscorable key")
+    return _checked(candidate)
+
+
 def _json_value(value: object) -> object:
     if is_dataclass(value) and isinstance(value, _Contract):
         return {field.name: _json_value(getattr(value, field.name)) for field in fields(value)}
