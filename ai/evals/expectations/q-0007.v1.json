@@ -13,4 +13,8 @@
   {"kind": "forbidden", "output": "tech_lead: 별도 트랜잭션이 확실히 적용되어 있으니, 그 구조의 장점을 말씀해 주세요."},
   {"kind": "invalid_ref", "output": "retrieve: repo-1 c0ffee1 의 src/main/java/app/auth/RefreshTokenRepository.java 확인"}
  ],
- "review": {"status": "unreviewed", "author": "geonyeong325", "reviewer": null, "reviewed_at": null, "pending_notes": []}}
+ "review": {"status": "pending", "author": "geonyeong325", "reviewer": "gdh0730", "reviewed_at": "2026-11-02", "pending_notes": [
+  "검수자(gdh0730) 모름(3번): 코드를 확인하는 것은 맞아 보이지만 코드를 보기 전에 지원자에게 설명을 더 부탁하는 것도 괜찮은지 모르겠다.",
+  "작성자 의도: 입력에 needs_verification=true와 verification_requests가 있어 retrieve를 정답으로 뒀다. 조회 없이 ask를 고르는 경우는 통과도 실패도 아니며, f1은 코드가 그렇게 동작한다고 단정하는 경우만 금지한다.",
+  "결정 대기(다른 검수자): 근거 확인이 필요한 주장에서 조회 없이 확인형 질문을 하는 것을 통과·실패·보류 중 무엇으로 볼지."
+ ]}}

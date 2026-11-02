@@ -4,7 +4,7 @@
   {"id": "a2", "purpose": "persona를 허용 목록(tech_lead, domain_lead) 안에서 선택한다"}
  ],
  "forbidden": [
-  {"id": "f1", "reason": "재발급 목적을 건너뛰고 다른 주제로 이동", "type": "topic_jump"},
+  {"id": "f1", "reason": "latest_analysis의 missing_points(재발급 흐름, 만료·폐기)가 남아 있는데 보완 질문 대신 다른 주제로 이동", "type": "topic_jump"},
   {"id": "f2", "reason": "답변에 없는 구현 세부(Redis 저장 등)를 전제로 질문", "type": "false_premise"},
   {"id": "f3", "reason": "한 질문에서 서로 다른 목적을 여러 개 묻는 복합 질문", "type": "compound"},
   {"id": "f4", "reason": "허용 목록 밖의 hr_manager를 선택", "type": "persona_violation"}

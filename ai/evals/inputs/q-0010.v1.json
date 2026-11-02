@@ -8,4 +8,4 @@
   "latest_analysis": {"evaluation_status": "evaluated", "sufficiency": "partial", "covered_points": ["기술 스택 나열"], "missing_points": ["각 기술의 사용 맥락"]},
   "evidence": [{"ref": "ev1", "path": "build.gradle", "lines": "38-43", "text": "    implementation 'org.springframework.boot:spring-boot-starter-data-redis'"}],
   "rejected_candidate": {"text": "Redis 캐시 만료 전략을 어떻게 설계하셨나요?", "reason": "근거에는 Redis 의존성 선언만 있고 캐시 사용·만료 설정은 확인되지 않음(전제가 자료와 맞지 않음)"},
-  "task": "다음에 할 일(ask, retrieve, finish)을 정하고, 질문이면 persona와 질문 하나를 쓰세요."}}
+  "task": "직전 후보가 rejected_candidate로 거절됐다. 복구 방식(rewrite, replan, no_valid_candidate) 중 하나를 고르고, 새 질문이면 persona와 질문 하나를 쓰세요."}}
