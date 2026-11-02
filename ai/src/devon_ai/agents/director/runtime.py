@@ -394,7 +394,7 @@ def verification_decision(
 
     기존 근거가 충분하다고 분석한 주장은 제외한다. 원문 의미의 충분성과 현재
     판단에 대한 영향은 검증된 T3의 요청·목적에 의존한다. 조회·감점·종료는 하지 않는다.
-    이미 수집한 원문만 다시 읽는 요청은 제외하고, 남은 요청은 좁은 범위 먼저 정렬하며
+    수집한 경로만 다시 읽는 요청은 새 경로 요청 뒤로, 같은 단계는 좁은 범위 먼저 정렬하며
     BE는 앞에서부터 실행한다.
     """
     if type(context) is not c.Context:
@@ -432,21 +432,24 @@ def verification_decision(
         for item in context.evidence
         if item.path is not None
     }
-    # 이미 수집한 원문만 다시 읽는 요청은 0003 조건 1(기존 근거로 확인 불가)에 맞지 않아 제외한다.
-    requests = tuple(
-        request
-        for request in requests
-        if not all(
-            (request.repository_id, request.git_ref, path) in collected
-            for path in request.allowed_paths
-        )
-    )
-    if not requests:
-        return None
-    # 확인 범위가 좁은 요청을 먼저 두고, 그 외에는 모델 순서를 유지한다(stable sort).
+    # 수집한 경로만 다시 읽는 요청은 빼지 않고 새 경로 요청 뒤에 둔다. Evidence 계약은 부분 줄
+    # 범위를 허용하고 파일 전체 확보 여부를 표시하지 않아, 경로만으로 재조회가 불필요하다고 볼 수
+    # 없다. 전체 원문 표시가 계약에 생기면 그 근거만 있는 요청은 제외한다(0003 조건 1).
+    # 같은 단계는 확인 범위가 좁은 요청을 먼저 두고, 그 외에는 모델 순서를 유지한다(stable sort).
     # 인접 후보(AI-L08, BE 미공급)와 주장 종류별 source 적합성(요청에 종류 필드 없음)은
     # 반영하지 않는다. 두 입력이 계약에 생기면 정렬 키에 단계를 추가한다.
-    requests = tuple(sorted(requests, key=lambda request: len(request.allowed_paths)))
+    requests = tuple(
+        sorted(
+            requests,
+            key=lambda request: (
+                all(
+                    (request.repository_id, request.git_ref, path) in collected
+                    for path in request.allowed_paths
+                ),
+                len(request.allowed_paths),
+            ),
+        )
+    )
     return c.validate_decision(
         c.DirectorDecision(
             "retrieve",

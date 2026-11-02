@@ -405,7 +405,7 @@ def test_verification_does_not_treat_a_stale_supported_reference_as_existing_evi
     assert decision.data.next_step == "retrieve"
 
 
-def test_verification_skips_collected_sources_then_orders_narrower_known_files():
+def test_verification_defers_collected_sources_after_narrower_known_files():
     paths = (("service.py", "config.py"), ("router.py",), ("cache.py",), ("model.py",))
     collected = tuple(
         c.Evidence(f"ev-{path}", "repo-1", REF, "code", path, None, "def f(): ...", "read_file")
@@ -416,27 +416,30 @@ def test_verification_skips_collected_sources_then_orders_narrower_known_files()
         checked_analysis(request_paths=paths),
         allowed_locations=frozenset(("repo-1", REF, path) for group in paths for path in group),
     )
-    # 이미 수집한 원문만 다시 읽는 요청은 제외하고(0003 조건 1), 일부만 수집한 요청은 남긴다.
-    # 남은 요청은 좁은 범위 먼저, 같은 범위는 모델 순서를 유지한다.
+    # 수집한 경로만 다시 읽는 요청은 빼지 않고 새 경로 요청 뒤로 둔다. 일부만 수집한 요청은
+    # 새 경로가 있어 앞 단계에 남는다. 같은 단계는 좁은 범위 먼저, 동률은 모델 순서를 유지한다.
     assert [request.allowed_paths for request in decision.data.tool_requests] == [
         ("router.py",),
         ("model.py",),
         ("service.py", "config.py"),
+        ("cache.py",),
     ]
 
 
-def test_verification_skips_lookup_when_every_request_rereads_collected_sources():
+@pytest.mark.parametrize("lines", [(None, None), (10, 11)], ids=["unknown-range", "partial"])
+def test_verification_keeps_lookup_when_only_collected_paths_remain(lines):
+    # Evidence 계약은 부분 줄 범위를 허용하고 파일 전체 확보 여부를 표시하지 않는다.
+    # 같은 경로 근거가 있어도 전체 원문이라고 단정하지 않고 필요한 조회를 유지한다.
     collected = c.Evidence(
-        "ev-1", "repo-1", REF, "code", "cache.py", None, "def cached(): ...", "read_file"
+        "ev-1", "repo-1", REF, "code", "cache.py", None, "line10\nline11", "read_file", None, *lines
     )
-    assert (
-        runtime().verification_decision(
-            later_context(evidence=(collected,)),
-            checked_analysis(),
-            allowed_locations=frozenset({("repo-1", REF, "cache.py")}),
-        )
-        is None
+    decision = runtime().verification_decision(
+        later_context(evidence=(collected,)),
+        checked_analysis(),
+        allowed_locations=frozenset({("repo-1", REF, "cache.py")}),
     )
+    assert decision is not None and decision.data.next_step == "retrieve"
+    assert [request.allowed_paths for request in decision.data.tool_requests] == [("cache.py",)]
 
 
 def test_prior_analyses_preserve_contribution_corrections_in_both_operations():
