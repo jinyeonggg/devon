@@ -1257,6 +1257,122 @@ def validate_score_judgments(
     return _checked(candidate)
 
 
+NARRATIVE_PERSONAS: tuple[PersonaId, ...] = ("hr_manager", "tech_lead", "domain_lead")
+HEADLINE_MAX_CHARS = 100  # 임의값. FE 표시 한도 확인 뒤 조정한다.
+TAG_MAX_CHARS = 20  # 임의값. FE 태그 용도 확인 뒤 조정한다.
+
+
+@dataclass(frozen=True)
+class ReportTurn(_Contract):
+    """서술 입력의 확정 문답 한 턴. follows는 후속 질문이 가리키는 이전 턴의 turn_id다."""
+
+    turn_id: str
+    persona: PersonaId
+    question: str
+    answer: str
+    follows: str | None
+    analysis: AnswerAnalysis | None
+
+
+@dataclass(frozen=True)
+class ReportToolResult(_Contract):
+    """어느 턴의 근거 조회 결과인지 묶는다. not_found와 tool_error를 서술이 구분하게 한다."""
+
+    turn_id: str
+    result: ToolResult
+
+
+@dataclass(frozen=True)
+class ReportInput(_Contract):
+    turns: tuple[ReportTurn, ...]
+    evidence: tuple[Evidence, ...]
+    tool_results: tuple[ReportToolResult, ...]
+
+
+@dataclass(frozen=True)
+class NarrativeClaim(_Contract):
+    """서술 한 항목과 그 근거. turn_refs 또는 evidence_refs가 하나 이상 있어야 한다."""
+
+    text: str
+    turn_refs: tuple[str, ...]
+    evidence_refs: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class SummaryNarrative(_Contract):
+    strengths: tuple[NarrativeClaim, ...]
+    gaps: tuple[NarrativeClaim, ...]
+    follow_ups: tuple[NarrativeClaim, ...]
+    practice_actions: tuple[NarrativeClaim, ...]
+
+
+@dataclass(frozen=True)
+class PersonaNarrative(_Contract):
+    persona: PersonaId
+    tags: tuple[str, ...]
+    strengths: tuple[NarrativeClaim, ...]
+    improvements: tuple[NarrativeClaim, ...]
+    practice_actions: tuple[NarrativeClaim, ...]
+    limitations: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ReportNarrative(_Contract):
+    """점수 필드가 없는 서술 후보. 점수는 별도 task와 코드가 만든다."""
+
+    headline: str
+    summary: SummaryNarrative
+    persona_feedbacks: tuple[PersonaNarrative, ...]
+
+
+def validate_report_input(report_input: ReportInput) -> ReportInput:
+    """서술 입력의 구조와 턴·근거 참조를 모델을 부르기 전에 확인한다."""
+    _convert(ReportInput, report_input, "report input", wire=False)
+    if not report_input.turns:
+        raise ContractError("semantic", "turns")
+    ids = tuple(turn.turn_id for turn in report_input.turns)
+    _unique(ids, "turn_id")
+    for index, turn in enumerate(report_input.turns):
+        if turn.follows is not None and turn.follows not in ids[:index]:
+            raise ContractError("semantic", "follows")
+    if any(item.turn_id not in ids for item in report_input.tool_results):
+        raise ContractError("semantic", "tool result turn")
+    _unique(tuple(i.evidence_id for i in report_input.evidence if i.evidence_id), "evidence_id")
+    return report_input
+
+
+def validate_narrative(
+    candidate: ReportNarrative, *, report_input: ReportInput
+) -> ContractChecked[ReportNarrative]:
+    """코드로 판정할 수 있는 규칙만 검사한다. 보완 반영·단정 표현 같은 의미 품질은 검사하지 못한다.
+
+    evidence_refs는 등록된 근거 ID인지만 확인한다. 근거가 인용한 턴에 묶여 있는지는 근거와 턴의
+    연결을 입력에 싣는 형식이 정해진 뒤에 검사한다.
+    """
+    _convert(ReportNarrative, candidate, "narrative", wire=False)
+    validate_report_input(report_input)
+    if "\n" in candidate.headline or len(candidate.headline) > HEADLINE_MAX_CHARS:
+        raise ContractError("semantic", "headline")
+    personas = tuple(item.persona for item in candidate.persona_feedbacks)
+    if sorted(personas) != sorted(NARRATIVE_PERSONAS):
+        raise ContractError("semantic", "persona_feedbacks")
+    turn_ids = frozenset(turn.turn_id for turn in report_input.turns)
+    evidence_ids = frozenset(i.evidence_id for i in report_input.evidence if i.evidence_id)
+    summary = candidate.summary
+    claims = [*summary.strengths, *summary.gaps, *summary.follow_ups, *summary.practice_actions]
+    for item in candidate.persona_feedbacks:
+        if not 1 <= len(item.tags) <= 3 or any(len(tag) > TAG_MAX_CHARS for tag in item.tags):
+            raise ContractError("semantic", "tags")
+        _unique(item.tags, "tags")
+        claims += [*item.strengths, *item.improvements, *item.practice_actions]
+    for claim in claims:
+        if not claim.turn_refs and not claim.evidence_refs:
+            raise ContractError("semantic", "claim basis")
+        _references(claim.turn_refs, turn_ids, "turn_refs")
+        _references(claim.evidence_refs, evidence_ids, "evidence_refs")
+    return _checked(candidate)
+
+
 def _json_value(value: object) -> object:
     if is_dataclass(value) and isinstance(value, _Contract):
         return {field.name: _json_value(getattr(value, field.name)) for field in fields(value)}
