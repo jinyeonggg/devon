@@ -4,6 +4,9 @@
 
 ## BE 내부 구현 결정
 
+- [0012 L1 실패 행에 AI 실패 단계·사유 보존](0012-l1-failure-stage-reason.md): Proposed.
+  실패 행 `result._failure`에 단계·사유를 남기고 공개 `error_code`는 유지한다. 실패 행 `result`를 `null`로 가정하지 않는다.
+
 - [0010 공개 저장소의 OAuth App 인증](0010-public-repository-app-auth.md): Proposed.
   기존 앱 자격 증명으로 공개 데이터를 조회하며 사용자 token의 비공개 접근 범위를 확대하지 않는다.
 
