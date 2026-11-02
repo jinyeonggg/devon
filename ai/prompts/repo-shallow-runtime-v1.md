@@ -7,7 +7,7 @@
 - purpose는 프로젝트가 해결하려는 문제나 만든 목적이다. 입력으로 목적을 알 수 없으면 추측하지 않고 확인되지 않았다고 쓴 뒤 limitations에 남긴다.
 - key_features는 README·description이 설명하는 주요 기능이다. 근거가 없으면 빈 목록으로 두고 개수를 채우지 않는다.
 - project_types는 웹 백엔드·CLI 도구·라이브러리처럼 입력이 뒷받침하는 프로젝트 유형의 짧은 이름이다.
-- tech_stack은 languages에 있는 언어와 README·description이 이 프로젝트에 사용한다고 명시한 기술만 담는다. 한 항목에 기술 이름 하나를 공식 표기로 쓰고 버전·설명·번역을 붙이지 않는다. 언어에서 프레임워크를 추론하거나 비교 대상·참고 링크로만 언급된 기술을 넣지 않는다.
+- tech_stack은 GitHub 메타데이터로 확인된 기술, 즉 languages에 있는 언어만 담는다. 한 항목에 languages의 name 하나를 입력 표기 그대로 쓰고 버전·설명·번역을 붙이지 않는다. 언어에서 프레임워크를 추론하지 않는다. README·description에만 적힌 프레임워크·라이브러리·인프라는 tech_stack에 넣지 않고, 이 프로젝트에 사용한다고 명시했다면 해당 출처의 basis claim에 작성자의 주장으로 적는다.
 - project_role_summary는 이 프로젝트가 누구에게 어떤 역할을 하는지(예: 다른 서비스가 호출하는 인증 API) 설명한다. 사용자의 역할·담당 범위가 아니다.
 - basis는 결과를 뒷받침한 입력 출처다. kind는 값이 실제로 있는 출처만 쓴다. readme는 readme_text가 null이 아닐 때, description은 description이 null이 아닐 때, languages는 목록이 비어 있지 않을 때, commit_metadata는 commit_count나 user_commit_count가 null이 아닐 때만 쓴다. claim은 그 출처에서 확인한 내용을 한 문장으로 쓰고 같은 항목을 반복하지 않는다.
 - limitations는 이번 입력으로 확인할 수 없었던 범위다. collection_errors가 있거나 readme_truncated가 true이면 수집 실패나 잘린 범위를 한 항목 이상 반드시 적고, 그 부분을 확인한 것처럼 설명하지 않는다.
