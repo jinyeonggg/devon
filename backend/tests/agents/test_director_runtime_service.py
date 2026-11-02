@@ -263,7 +263,8 @@ async def test_cancel_during_lookup_preserves_first_analysis_and_records_request
                 repository_id=agent_seed["repo_id"],
                 git_ref=agent_seed["sha"],
                 source_type="file",
-                path="src/main.py",
+                # 이미 수집한 원문만 다시 읽는 요청은 AI가 제외하므로 다른 파일 근거를 둔다.
+                path="README.md",
                 snippet="원문 근거",
                 tool_name="read_file",
             )

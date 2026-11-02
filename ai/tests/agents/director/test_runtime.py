@@ -405,23 +405,38 @@ def test_verification_does_not_treat_a_stale_supported_reference_as_existing_evi
     assert decision.data.next_step == "retrieve"
 
 
-def test_verification_orders_collected_sources_then_narrower_known_files():
+def test_verification_skips_collected_sources_then_orders_narrower_known_files():
     paths = (("service.py", "config.py"), ("router.py",), ("cache.py",), ("model.py",))
-    collected = c.Evidence(
-        "ev-1", "repo-1", REF, "code", "cache.py", None, "def cached(): ...", "read_file"
+    collected = tuple(
+        c.Evidence(f"ev-{path}", "repo-1", REF, "code", path, None, "def f(): ...", "read_file")
+        for path in ("cache.py", "service.py")
     )
     decision = runtime().verification_decision(
-        later_context(evidence=(collected,)),
+        later_context(evidence=collected),
         checked_analysis(request_paths=paths),
         allowed_locations=frozenset(("repo-1", REF, path) for group in paths for path in group),
     )
-    # 이미 수집한 원문이 먼저, 같은 단계는 좁은 범위 먼저, 나머지는 모델 순서를 유지한다.
+    # 이미 수집한 원문만 다시 읽는 요청은 제외하고(0003 조건 1), 일부만 수집한 요청은 남긴다.
+    # 남은 요청은 좁은 범위 먼저, 같은 범위는 모델 순서를 유지한다.
     assert [request.allowed_paths for request in decision.data.tool_requests] == [
-        ("cache.py",),
         ("router.py",),
         ("model.py",),
         ("service.py", "config.py"),
     ]
+
+
+def test_verification_skips_lookup_when_every_request_rereads_collected_sources():
+    collected = c.Evidence(
+        "ev-1", "repo-1", REF, "code", "cache.py", None, "def cached(): ...", "read_file"
+    )
+    assert (
+        runtime().verification_decision(
+            later_context(evidence=(collected,)),
+            checked_analysis(),
+            allowed_locations=frozenset({("repo-1", REF, "cache.py")}),
+        )
+        is None
+    )
 
 
 def test_prior_analyses_preserve_contribution_corrections_in_both_operations():
