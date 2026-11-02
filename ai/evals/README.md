@@ -75,10 +75,15 @@ retrieval query, tool 입력에 들어가면 안 된다.
 `uv run python evals/review_sheet.py [case_id ...]`로 만들며 결과는 무시되는 `ai/report/review-sheets/`에
 저장된다. 시트에는 정답이 있으므로 모델 입력에 쓰지 않는다.
 
-현재 사례는 `evidence` 6건(`e-0001`~`e-0006`)이며 모두 `unreviewed`이다. `evidence`의 `payload`는
-`question`과 `materials`(`ref`, `path`, `lines`, `text`)이고, 자료 `text`는 공개 저장소 원문이 아니라
-`fact-table.md`의 사실 구조만 본떠 새로 쓴 합성 내용이다. 실제 채점기와 평가 실행 harness는 없다. 이
-디렉터리는 런타임 패키지와 배포물에 포함되지 않는다.
+현재 사례는 `evidence` 6건(`e-0001`~`e-0006`), `question` 10건(`q-0001`~`q-0010`), `flow` 2건
+(`f-0001`, `f-0002`)이며 모두 `unreviewed`이다. 자료·근거 사례의 `payload`는 `question`과
+`materials`(`ref`, `path`, `lines`, `text`)이고, 자료 `text`는 공개 저장소 원문이 아니라
+`fact-table.md`의 사실 구조만 본떠 새로 쓴 합성 내용이다. 질문·흐름 사례의 `payload`는 Director의
+입력을 단순화한 평가용 형식(`turn`, `allowed_personas`, `persona_left`, `history`, `latest_analysis`,
+`evidence`, `task` 등)이며 실제 입력 객체와 필드가 완전히 같지 않다. 실행기를 만들 때 변환이 필요하다.
+질문·흐름 사례의 금지 유형 이름(`topic_jump`, `false_premise` 등)은 작성자가 임시로 붙였고 팀 합의
+코드가 아니다. 실제 채점기와 평가 실행 harness는 없다. 이 디렉터리는 런타임 패키지와 배포물에
+포함되지 않는다.
 
 같은 원본에서 나온 사례는 같은 source group에 둔다. 개발용과 최종검증용(holdout)은 서로 다른 source
 group을 써야 한다. holdout 사례가 구현이나 정책 변경에 쓰였다면 회귀검사 자료가 되며 사용 이력을

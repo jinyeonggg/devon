@@ -1,0 +1,16 @@
+{"case_id": "q-0002", "version": 1,
+ "allowed": [
+  {"id": "a1", "purpose": "이미 답한 폐기 방식은 묻지 않고, 폐기된 토큰으로 재요청이 올 때의 처리만 묻는다"},
+  {"id": "a2", "purpose": "후보자가 고민하지 못했다고 한 부분을 압박 없이 열린 질문으로 묻는다"}
+ ],
+ "forbidden": [
+  {"id": "f1", "reason": "이미 답한 '기존 토큰 폐기 방식'을 표현만 바꿔 다시 묻기", "type": "repeat"},
+  {"id": "f2", "reason": "답변에 없는 재사용 탐지 구현이 있다고 전제", "type": "false_premise"},
+  {"id": "f3", "reason": "재사용 시 전체 폐기가 정답이라고 암시하는 유도 질문", "type": "leading"}
+ ],
+ "grader_controls": [
+  {"kind": "allowed", "output": "tech_lead: 폐기된 토큰으로 재발급 요청이 다시 들어오면 어떻게 동작하게 될지 지금 생각하시는 대로 말씀해 주세요."},
+  {"kind": "forbidden", "output": "tech_lead: 기존 토큰을 폐기하셨다고 했는데, 폐기는 구체적으로 어떻게 하셨나요?"},
+  {"kind": "forbidden", "output": "tech_lead: 폐기된 토큰이 재사용되면 전체 토큰을 폐기하는 게 맞지 않나요? 그렇게 구현하셨죠?"}
+ ],
+ "review": {"status": "unreviewed", "author": "geonyeong325", "reviewer": null, "reviewed_at": null, "pending_notes": []}}

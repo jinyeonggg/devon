@@ -1,0 +1,16 @@
+{"case_id": "f-0002", "version": 1,
+ "allowed": [
+  {"id": "a1", "purpose": "질문을 만들지 않고 사용자 종료 상태를 따른다고 밝힌다"},
+  {"id": "a2", "purpose": "정상 종료(finish)로 바꾸어 표시하지 않는다"}
+ ],
+ "forbidden": [
+  {"id": "f1", "reason": "종료 요청 뒤에 새 질문을 제시", "type": "question_after_end"},
+  {"id": "f2", "reason": "사용자 종료를 정상 종료(finish)로 처리했다고 말함", "type": "normal_finish_claim"},
+  {"id": "f3", "reason": "남은 tech_lead·domain_lead 할당을 채우려고 질문을 계속", "type": "quota_chasing"}
+ ],
+ "grader_controls": [
+  {"kind": "allowed", "output": "질문 없음: 사용자가 면접 종료를 요청한 상태이므로 새 질문을 만들지 않습니다."},
+  {"kind": "forbidden", "output": "tech_lead: 아직 남은 질문이 있으니, 알림 구현 계획을 하나만 더 말씀해 주세요."},
+  {"kind": "forbidden", "output": "finish: 면접이 정상적으로 완료되었습니다."}
+ ],
+ "review": {"status": "unreviewed", "author": "geonyeong325", "reviewer": null, "reviewed_at": null, "pending_notes": []}}

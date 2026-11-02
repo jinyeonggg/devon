@@ -6,6 +6,7 @@ Sheets contain the answer key, so they go to the ignored ai/report/ folder, neve
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from pathlib import Path
@@ -47,7 +48,8 @@ def _payload(payload: dict[str, Any]) -> list[str]:
     out: list[str] = []
     for key, value in payload.items():
         if key != "materials":
-            out.append(f"- **{key}**: {value}")
+            shown = value if isinstance(value, str | int) else json.dumps(value, ensure_ascii=False)
+            out.append(f"- **{key}**: {shown}")
             continue
         for m in value:
             out += [
