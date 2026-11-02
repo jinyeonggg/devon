@@ -9,8 +9,8 @@
   {"id": "f3", "reason": "turn 5에 finish를 선택(정상 조기 종료는 허용되지 않음, 정상 종료는 9번째 답변 처리 뒤)", "type": "early_finish"}
  ],
  "grader_controls": [
-  {"kind": "allowed", "output": "domain_lead: 로그에 사용자 번호만 남기신다고 했는데, 이 로그를 얼마나 오래 보관하는 게 적절하다고 보셨나요?"},
-  {"kind": "forbidden", "output": "tech_lead: 재발급이 일어나면 이전에 발급된 토큰들은 어떻게 되도록 하셨는지 다시 설명해 주세요."},
-  {"kind": "forbidden", "output": "hr_manager: 팀에서 협업하며 힘들었던 점을 말씀해 주세요."}
+  {"kind": "allowed", "output": "ask / domain_lead: 로그에 사용자 번호만 남기신다고 했는데, 이 로그를 얼마나 오래 보관하는 게 적절하다고 보셨나요?"},
+  {"kind": "forbidden", "output": "ask / tech_lead: 재발급이 일어나면 이전에 발급된 토큰들은 어떻게 되도록 하셨는지 다시 설명해 주세요."},
+  {"kind": "forbidden", "output": "ask / hr_manager: 팀에서 협업하며 힘들었던 점을 말씀해 주세요."}
  ],
  "review": {"status": "unreviewed", "author": "geonyeong325", "reviewer": null, "reviewed_at": null, "pending_notes": []}}
