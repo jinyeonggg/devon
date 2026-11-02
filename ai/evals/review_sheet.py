@@ -18,11 +18,36 @@ from grader_check import EXPECTED
 _VERDICT = {"accept": "통과", "reject": "거부", "ambiguous": "판정 보류"}
 _FACT_ROWS = ("사실", "확인 범위", "미확인", "확인 수준", "금지", "출처")
 
-_QUESTIONS = (
-    "통과 항목이 원본 사실의 '확인 범위'를 넘지 않는가? (원본보다 넓지 않은가)",
-    "실패 항목은 모두 원본 사실의 '미확인'에서 나온 넘겨짚기인가? 빠진 넘겨짚기는 없는가?",
-    "모델이 받는 자료에서 정답 기준과 다르게 해석할 여지가 없는가?",
+_SHARED = (
+    "모델이 받는 입력에서 정답 기준과 다르게 해석할 여지가 없는가?",
     "채점기 시험용 가짜 답의 종류가 맞는가?",
+)
+_QUESTIONS = {
+    "evidence": (
+        "통과 항목이 원본 사실의 '확인 범위'를 넘지 않는가? (원본보다 넓지 않은가)",
+        "실패 항목은 모두 원본 사실의 '미확인'에서 나온 넘겨짚기인가? 빠진 넘겨짚기는 없는가?",
+        *_SHARED,
+    ),
+    "interview": (
+        "통과 항목은 아래 정책에 맞는 좋은 다음 행동인가? "
+        "정책이 허용하지 않는 행동을 통과시키지 않는가?",
+        "실패 항목은 모두 아래 정책이나 입력에 어긋나는 행동인가? 빠진 실패 행동은 없는가?",
+        *_SHARED,
+    ),
+}
+
+# Condensed from spec/ai/features/interviewer.md (the source of truth); update both together.
+_POLICY = (
+    "다음 질문의 Persona는 허용 목록 안에서만 고르고, 남은 할당이 없는 Persona는 쓰지 않는다.",
+    "질문은 한 가지 중심 목적을 갖고, 복합 질문이나 정답 유도를 하지 않는다.",
+    "이미 충분히 확인한 목적은 표현만 바꿔 반복하지 않는다. 보완 질문은 부족한 부분을, "
+    "심화 질문은 새로운 판단 조건을 묻는다.",
+    "읽지 않은 구현·성능·배포 성공을 사실로 단정하지 않는다. 검색에서 못 찾은 것을 거짓의 "
+    "증거로 말하지 않고, 답변과 코드의 차이는 확인형 질문으로 한다.",
+    "후보자의 개인 기여나 도메인 실무 경험을 추정하지 않는다. 후보자의 정정은 반영한다.",
+    "전제가 거짓이거나 목적이 잘못된 후보는 표현 재작성이 아니라 재계획 대상이고, 안전한 질문을 "
+    "만들 수 없으면 검증되지 않은 질문을 내지 않고 유효 후보 없음으로 답한다.",
+    "정상 조기 종료는 허용하지 않고, 사용자가 종료를 요청한 뒤에는 질문을 이어 가지 않는다.",
 )
 
 
@@ -47,19 +72,27 @@ def _table(header: tuple[str, ...], rows: list[tuple[str, ...]]) -> list[str]:
 def _payload(payload: dict[str, Any]) -> list[str]:
     out: list[str] = []
     for key, value in payload.items():
-        if key != "materials":
+        if key == "history":
+            out.append("- **history**:")
+            for t in value:
+                out += [
+                    f"  - turn {t['turn']} · `{t['persona']}`",
+                    f"    - 질문: {t['question']}",
+                    f"    - 답변: {t['answer']}",
+                ]
+        elif key != "materials":
             shown = value if isinstance(value, str | int) else json.dumps(value, ensure_ascii=False)
             out.append(f"- **{key}**: {shown}")
-            continue
-        for m in value:
-            out += [
-                "",
-                f"**{m['ref']}** — `{m['path']}` ({m['lines']}줄)",
-                "",
-                "```",
-                m["text"],
-                "```",
-            ]
+        else:
+            for m in value:
+                out += [
+                    "",
+                    f"**{m['ref']}** — `{m['path']}` ({m['lines']}줄)",
+                    "",
+                    "```",
+                    m["text"],
+                    "```",
+                ]
     return out
 
 
@@ -75,12 +108,18 @@ def render_sheet(case: Case, fact: dict[str, str] | None) -> str:
         "",
         *_payload(case.payload),
         "",
-        "## ② 원본 사실",
-        "",
     ]
-    if fact is None:
-        lines.append("이 사례에는 원본 사실이 연결돼 있지 않습니다.")
+    interview = case.kind in ("question", "flow")
+    if interview:
+        lines += [
+            "## ② 기준이 되는 면접 정책",
+            "",
+            *(f"{i}. {p}" for i, p in enumerate(_POLICY, 1)),
+        ]
+    elif fact is None:
+        lines += ["## ② 원본 사실", "", "이 사례에는 원본 사실이 연결돼 있지 않습니다."]
     else:
+        lines += ["## ② 원본 사실", ""]
         lines += _table(("항목", "내용"), [(k, fact[k]) for k in _FACT_ROWS if k in fact])
     lines += ["", "## ③ 정답 기준 (작성자가 정함)", ""]
     lines += _table(("통과(허용)", "내용"), [(a["id"], a["purpose"]) for a in exp["allowed"]])
@@ -97,7 +136,10 @@ def render_sheet(case: Case, fact: dict[str, str] | None) -> str:
     lines += ["", "## 판단할 것", ""]
     lines += _table(
         ("#", "질문", "판정"),
-        [(str(i), q, "□ 맞음 □ 수정 필요 □ 모름") for i, q in enumerate(_QUESTIONS, 1)],
+        [
+            (str(i), q, "□ 맞음 □ 수정 필요 □ 모름")
+            for i, q in enumerate(_QUESTIONS["interview" if interview else "evidence"], 1)
+        ],
     )
     lines += [
         "",

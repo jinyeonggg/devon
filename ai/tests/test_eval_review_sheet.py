@@ -107,3 +107,19 @@ def test_loader_rejects_bad_source_fact(tmp_path, bad):
     _write_case(tmp_path, source_fact=bad)
     with pytest.raises(CaseError):
         load_cases(tmp_path)
+
+
+def test_interview_sheet_uses_policy_and_readable_history(tmp_path):
+    _write_case(tmp_path)
+    inp_path = tmp_path / "inputs" / "e-1.v1.json"
+    inp = json.loads(inp_path.read_text(encoding="utf-8"))
+    inp["control"]["kind"] = "question"
+    inp["payload"] = {
+        "history": [{"turn": 2, "persona": "tech_lead", "question": "Q텍스트", "answer": "A텍스트"}]
+    }
+    inp_path.write_text(json.dumps(inp), encoding="utf-8")
+    (case,) = load_cases(tmp_path)
+    sheet = render_sheet(case, None)
+    assert "기준이 되는 면접 정책" in sheet and "원본 사실" not in sheet
+    assert "질문: Q텍스트" in sheet and "답변: A텍스트" in sheet
+    assert "확인 범위" not in sheet and "정책에 맞는 좋은 다음 행동" in sheet
