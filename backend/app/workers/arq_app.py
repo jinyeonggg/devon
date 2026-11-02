@@ -13,6 +13,7 @@ from app.features.interview.prepare_lease import JOB_TIMEOUT_SECONDS
 from app.workers.tasks.initial_sync import initial_sync
 from app.workers.tasks.interview_prep import interview_prep
 from app.workers.tasks.interview_preparation_reaper import interview_preparation_reaper
+from app.workers.tasks.profile_summary import profile_summary
 from app.workers.tasks.report_generate import report_generate
 
 
@@ -32,7 +33,7 @@ async def shutdown(ctx: dict[str, Any]) -> None:
 
 
 class WorkerSettings:
-    functions = [initial_sync, interview_prep, report_generate]
+    functions = [initial_sync, interview_prep, report_generate, profile_summary]
     cron_jobs = [cron(interview_preparation_reaper, second={0, 30}, run_at_startup=True)]
     on_startup = startup
     on_shutdown = shutdown
