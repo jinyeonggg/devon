@@ -193,3 +193,28 @@ def test_approved_needs_strings_and_no_open_notes(tmp_path, review):
     _pair(tmp_path, exp=_expectation(**review))
     with pytest.raises(CaseError):
         load_cases(tmp_path)
+
+
+@pytest.mark.parametrize(
+    "review",
+    [
+        {"author": "gdh0730", "reviewer": "GDH0730"},
+        {"author": "gdh0730", "reviewer": " gdh0730 "},
+        {"author": "a", "reviewer": "   "},
+        {"author": "   ", "reviewer": "b"},
+        {"author": "a", "reviewer": "b", "reviewed_at": "  "},
+    ],
+)
+def test_approved_rejects_same_account_and_blank_names(tmp_path, review):
+    base = {"status": "approved", "reviewed_at": "2026-11-01"}
+    _pair(tmp_path, exp=_expectation(**{**base, **review}))
+    with pytest.raises(CaseError):
+        load_cases(tmp_path)
+
+
+@pytest.mark.parametrize("folder", ["inputs", "expectations"])
+def test_invalid_utf8_raises_case_error(tmp_path, folder):
+    _pair(tmp_path)
+    (tmp_path / folder / "q-1.v1.json").write_bytes(b'{"case_id": "\xff"}')
+    with pytest.raises(CaseError, match="q-1.v1.json"):
+        load_cases(tmp_path)

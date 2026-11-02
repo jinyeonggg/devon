@@ -102,3 +102,19 @@ def test_crashing_grader_is_counted_not_hidden():
 def test_unknown_verdict_is_rejected():
     with pytest.raises(ValueError, match="grader returned"):
         check_grader([_case()], lambda rubric, output: "maybe")
+
+
+def test_approved_case_without_controls_is_not_counted_as_evaluated():
+    empty = _case("q-2")
+    empty.expectation["grader_controls"] = []
+    calls = []
+
+    def grader(rubric, output):
+        calls.append(output)
+        return ANSWERS[output]
+
+    report = check_grader([_case("q-1"), empty], grader)
+    assert len(calls) == len(KINDS)
+    assert report["total_cases"] == 2
+    assert report["evaluated_cases"] == 1
+    assert report["excluded_cases"] == {"no_controls": 1}

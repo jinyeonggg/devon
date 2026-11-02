@@ -39,6 +39,9 @@ def check_grader(cases: Sequence[Case], grader: Grader) -> dict[str, Any]:
         if status != "approved":
             excluded[status] += 1
             continue
+        if not case.expectation["grader_controls"]:
+            excluded["no_controls"] += 1  # nothing to check, so it is not a graded case
+            continue
         evaluated += 1
         rubric = {k: case.expectation[k] for k in ("allowed", "forbidden")}
         for control in case.expectation["grader_controls"]:

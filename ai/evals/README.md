@@ -45,10 +45,12 @@ retrieval query, tool 입력에 들어가면 안 된다.
 - 이 형식은 합성 fixture 전용이다. 데이터베이스나 공개 API 스키마가 아니다.
 - `evals/eval_cases.py`는 쌍을 읽고 다음을 거부한다: 짝 없는 파일, 중복, 파일 이름 불일치, 알 수 없는
   키(입력 파일에 기대값이 섞이는 경우 포함), 합성이 아닌 사례, 같은 source group이 `dev`와
-  `holdout`에 함께 있는 경우, 작성자 외 검수자가 없는 `approved`.
+  `holdout`에 함께 있는 경우, 작성자 외 검수자가 없는 `approved`(앞뒤 공백을 지우고 대소문자를 무시해
+  비교하며, 작성자·검수자·날짜가 공백뿐이어도 거부), 읽을 수 없는 UTF-8 파일(`CaseError`로 알림).
 - `evals/grader_check.py`는 승인된 사례의 control 출력으로 채점기를 시험해 control 종류별로 correct,
   false accept, false reject, abstained, error를 센다. 채점기는 control 종류를 보지 못한다. 종류별
-  기대 판정은 작성자의 가정이며 팀 확인이 필요하다.
+  기대 판정은 작성자의 가정이며 팀 확인이 필요하다. 승인됐지만 `grader_controls`가 비어 검사할 출력이
+  없는 사례는 전체 수에는 남기고 `evaluated_cases`에서는 빼며 `excluded_cases`에 `no_controls`로 센다.
 
 ## 사례 검수 (작성자 제안, 팀 확인 대기)
 

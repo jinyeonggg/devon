@@ -53,7 +53,7 @@ def _load_dir(folder: Path, keys: set[str]) -> dict[str, dict[str, Any]]:
     for path in sorted(folder.glob("*.json")):
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise CaseError(f"{path.name}: {exc}") from exc
         if not isinstance(data, dict):
             raise CaseError(f"{path.name}: top level must be an object")
@@ -108,10 +108,12 @@ def _check_expectation(name: str, exp: dict[str, Any]) -> None:
     if not isinstance(review["pending_notes"], list):
         raise CaseError(f"{name}: pending_notes must be a list")
     if review["status"] == "approved":
-        author, reviewer, reviewed_at = review["author"], review["reviewer"], review["reviewed_at"]
-        named = all(isinstance(v, str) and v for v in (author, reviewer, reviewed_at))
-        if not named or author == reviewer:
-            raise CaseError(f"{name}: approved needs a reviewer other than the author and a date")
+        names = [review[k] for k in ("author", "reviewer", "reviewed_at")]
+        if not all(isinstance(v, str) and v.strip() for v in names):
+            raise CaseError(f"{name}: approved needs an author, a reviewer and a date")
+        author, reviewer = (v.strip().casefold() for v in names[:2])  # GitHub logins ignore case
+        if author == reviewer:
+            raise CaseError(f"{name}: approved needs a reviewer other than the author")
         if review["pending_notes"]:
             raise CaseError(f"{name}: approved cannot have open pending_notes")
 
