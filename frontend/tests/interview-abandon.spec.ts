@@ -41,6 +41,24 @@ test('레포 재선택은 기존 면접 abandon 후 새 면접을 만들고 뒤�
   await expect(page.getByRole('heading', { name: '중단된 면접이에요' })).toBeVisible();
 });
 
+test('종료하기 후 abandon 응답을 기다리는 동안 종료 중임을 보여준다', async ({ page }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'msw.faults',
+      JSON.stringify([
+        { path: '/interviews/*/abandon', method: 'POST', kind: 'timeout', delayMs: 2_000 },
+      ]),
+    ),
+  );
+  await page.goto(`/interview/${IN_PROGRESS}/session`);
+  await page.getByRole('button', { name: '면접 종료' }).click({ timeout: 15_000 });
+  await page.getByRole('button', { name: '종료하기' }).click();
+  await expect(page.getByRole('button', { name: '종료하는 중…' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: '계속하기' })).toBeDisabled();
+  // 응답이 실패해도 홈으로 간다(공통 0009).
+  await expect(page).toHaveURL(/\/home$/);
+});
+
 test('abandon은 열린 면접 WS를 닫아 진행 화면이 중단된 면접 안내로 바뀐다', async ({ page }) => {
   await page.goto(`/interview/${IN_PROGRESS}/session`);
   // 답변 시작이 활성화되면 WS가 열린 상태다.

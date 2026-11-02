@@ -27,11 +27,13 @@ export async function abandonInterview(id: string): Promise<InterviewStatus | nu
   }
 }
 
-/** `GET /interviews/{id}`의 status별 도달 화면 (spec/frontend/features/interview.md). */
-export function interviewPath(id: string, status: InterviewStatus) {
+/**
+ * `GET /interviews/{id}`의 status별 도달 화면 (spec/frontend/features/interview.md).
+ * `abandoned`는 받지 않는다. 레포 재선택에서 abandon이 성공하면 이동 대신 새 면접을 만든다.
+ */
+export function interviewPath(id: string, status: Exclude<InterviewStatus, 'abandoned'>) {
   if (status === 'completed') return `/interview/${id}/report`;
   if (status === 'in_progress') return `/interview/${id}/session`;
-  if (status === 'abandoned') return '/home';
   return `/interview/${id}/prepare`;
 }
 

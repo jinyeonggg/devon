@@ -131,6 +131,8 @@ export default function InterviewScreen() {
   const [evidence, setEvidence] = useState<{ repository: string; file: string } | null>(null);
   const [error, setError] = useState<InterviewLastError | null>(null);
   const [leaveModalOpen, setLeaveModalOpen] = useState(false);
+  // abandon 응답을 기다리는 동안 모달을 열어 두고 버튼으로 진행 중임을 보여준다.
+  const [leaving, setLeaving] = useState(false);
   const leaveDialogRef = useRef<HTMLDialogElement>(null);
   const [showQuestionText, setShowQuestionText] = useState(readQuestionText);
   /** 1초마다 흐르는 시계. 남은 시간과 녹음 경과 시간을 이 값으로 계산한다. */
@@ -436,7 +438,7 @@ export default function InterviewScreen() {
 
   async function handleLeave() {
     // 명시적 이탈은 REST abandon으로 알린다(공통 0009). 재연결 중에도 보낼 수 있다.
-    setLeaveModalOpen(false);
+    setLeaving(true);
     recorder.cancel();
     markRecording(id, null);
     closeSocket();
@@ -745,17 +747,19 @@ export default function InterviewScreen() {
             <button
               type="button"
               autoFocus
+              disabled={leaving}
               onClick={() => setLeaveModalOpen(false)}
-              className="h-10 flex-1 rounded-lg border border-line text-[13px] font-bold"
+              className="h-10 flex-1 rounded-lg border border-line text-[13px] font-bold disabled:opacity-50"
             >
               계속하기
             </button>
             <button
               type="button"
+              disabled={leaving}
               onClick={() => void handleLeave()}
-              className="h-10 flex-1 rounded-lg bg-error text-[13px] font-bold text-surface"
+              className="h-10 flex-1 rounded-lg bg-error text-[13px] font-bold text-surface disabled:opacity-50"
             >
-              종료하기
+              {leaving ? '종료하는 중…' : '종료하기'}
             </button>
           </div>
         </div>
