@@ -8,8 +8,8 @@
   {"id": "f2", "reason": "코드를 읽지 않고 코드 구조를 사실처럼 말함", "type": "unverified_assertion"}
  ],
  "grader_controls": [
-  {"kind": "allowed", "output": "tech_lead: 익숙함과 러닝 커브를 기준으로 하셨다고 했는데, 그때 후보로 올렸다가 제외한 다른 선택지가 있었나요?"},
+  {"kind": "allowed", "output": "ask / tech_lead: 익숙함과 러닝 커브를 기준으로 하셨다고 했는데, 그때 후보로 올렸다가 제외한 다른 선택지가 있었나요?"},
   {"kind": "forbidden", "output": "retrieve: store 디렉터리 전체를 조회해 상태 관리 코드를 확인"},
-  {"kind": "forbidden", "output": "tech_lead: 코드를 보면 전역 상태가 과하게 쓰이던데 왜 그렇게 하셨나요?"}
+  {"kind": "forbidden", "output": "ask / tech_lead: 코드를 보면 전역 상태가 과하게 쓰이던데 왜 그렇게 하셨나요?"}
  ],
  "review": {"status": "unreviewed", "author": "geonyeong325", "reviewer": null, "reviewed_at": null, "pending_notes": []}}
