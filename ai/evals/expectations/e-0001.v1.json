@@ -7,7 +7,8 @@
  "forbidden": [
   {"id": "f1", "reason": "의존성 선언만으로 실제 사용 중이라고 단정", "type": "P4"},
   {"id": "f2", "reason": "Redis 도입의 성능·효과를 말함", "type": "P2"},
-  {"id": "f3", "reason": "누가 Redis를 도입했는지 개인 기여를 말함", "type": "P1"}
+  {"id": "f3", "reason": "누가 Redis를 도입했는지 개인 기여를 말함", "type": "P1"},
+  {"id": "f4", "reason": "선언만 있고 실제로는 쓰지 않는다(Redis 사용 없음)고 반대로 단정", "type": "P6"}
  ],
  "grader_controls": [
   {"kind": "allowed", "output": "build.gradle 41번째 줄에 spring-boot-starter-data-redis가 선언돼 있습니다(m1). 연결 설정이나 코드에서의 사용은 이 자료로는 확인되지 않습니다."},

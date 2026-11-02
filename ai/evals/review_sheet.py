@@ -16,7 +16,7 @@ from eval_cases import Case, CaseError, load_cases
 from grader_check import EXPECTED
 
 _VERDICT = {"accept": "통과", "reject": "거부", "ambiguous": "판정 보류"}
-_FACT_ROWS = ("사실", "확인 범위", "미확인", "확인 수준", "금지", "출처")
+_FACT_ROWS = ("사실", "확인 범위", "미확인", "확인 수준", "금지", "사례 가공", "출처")
 
 _SHARED = (
     "모델이 받는 입력에서 정답 기준과 다르게 해석할 여지가 없는가?",

@@ -53,7 +53,7 @@
 | 확인 범위 | 의존성 선언 문자열의 존재 |
 | 미확인 | 런타임 사용 여부, Redis 연결 설정 값, 성능, 개인 기여 |
 | 확인 수준 | L1 |
-| 금지 | P1, P2, P4 |
+| 금지 | P1, P2, P4, P6 |
 
 ### F-R1-002 · README 의 프레임워크 버전 표기
 
@@ -96,9 +96,10 @@
 | 사실 | README.md 문서 표는 `CLAUDE.md` 를 "Claude Code (AI 협업 도구) 안내 문서" 라고 설명한다 |
 | 출처 | [README.md#L77](https://github.com/JEJUGILMOA/JEJUGILMOA-BE/blob/e04d093f6d18b5cf9794331e9ff56ef100ffd2a3/README.md#L77) |
 | 확인 범위 | README.md 문서 표의 해당 행 문자열, 그리고 최상위 디렉터리 목록에서 `.claude/`, `.agents/`, `AGENTS.md`, `CLAUDE.md` 네 항목이 실제로 존재함(파일·디렉터리 이름만 확인, 내용은 열지 않음) |
-| 미확인 | `AGENTS.md`·`CLAUDE.md`·`.claude/`·`.agents/` 내부의 실제 내용, 이 저장소의 개별 Java 소스 파일(이 표의 `AuthService.java`, `AppleAuthService.java` 포함) 각각이 AI 에이전트로 생성되었는지 사람이 직접 작성했는지, 이 도구들이 실제 개발 과정에서 사용되었는지 |
+| 미확인 | `AGENTS.md`·`CLAUDE.md`·`.claude/`·`.agents/` 내부의 실제 내용, 이 저장소의 개별 소스 파일 각각이 AI 에이전트로 생성되었는지 사람이 직접 작성했는지, 이 도구들이 실제 개발 과정에서 사용되었는지 |
 | 확인 수준 | L1 |
 | 금지 | P1, P5, P6 |
+| 사례 가공 | e-0005 는 `CLAUDE.md` 를 `AGENTS.md`, `.claude/` 를 `.agents/` 로 바꿔 쓴 합성 사례다. 이 사실표는 원본(`CLAUDE.md` 기준)을 그대로 두며 원본 README 에는 `AGENTS.md` 설명이 없다. 구조(문서 표의 설명 행, 최상위 목록의 같은 이름 항목)만 같다 |
 
 ---
 
@@ -130,7 +131,7 @@
 | 확인 범위 | README.md 해당 절의 해당 행 문자열 |
 | 미확인 | 실제 런타임에 Supabase 가 연결·사용되는지, DB 스키마 구성, 문서와 코드가 항상 동기화된다는 보장, 개인 기여 |
 | 확인 수준 | L1 |
-| 금지 | P1, P4 |
+| 금지 | P1, P3, P4 |
 
 ### F-R2-003 · getMission.ts 의 error 처리 비대칭
 

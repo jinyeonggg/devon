@@ -6,7 +6,7 @@
  ],
  "forbidden": [
   {"id": "f1", "reason": "운영에서 조용한 실패가 실제로 일어난다고 단정", "type": "P4"},
-  {"id": "f2", "reason": "운영 장애나 성능 영향을 말함", "type": "P2"},
+  {"id": "f2", "reason": "읽지 않은 호출부가 반환값을 어떻게 쓰는지 단정", "type": "P5"},
   {"id": "f3", "reason": "읽지 않은 다른 API 함수도 같은 패턴이라고 추론", "type": "P5"}
  ],
  "grader_controls": [
