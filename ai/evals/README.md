@@ -52,12 +52,12 @@ retrieval query, tool 입력에 들어가면 안 된다.
   기대 판정은 작성자의 가정이며 팀 확인이 필요하다. 승인됐지만 `grader_controls`가 비어 검사할 출력이
   없는 사례는 전체 수에는 남기고 `evaluated_cases`에서는 빼며 `excluded_cases`에 `no_controls`로 센다.
 
-## report 사례 (작성자 제안, 팀 확인 대기)
+## report 사례
 
 `control.kind`가 `report`인 사례는 리포트 생성 결과를 평가한다. 서술 기대값은 다른 종류와 같게
 `allowed`/`forbidden`에 쓴다. 점수는 정확한 숫자가 아니라 같은 질문에 답변만 다른 두 사례의 **순서
 관계**로 검사한다. 점수 기준과 환산표는 `backend/scripts/seed_score_criteria.py`의 `rubric`과
-`LEVEL_SCORES`(0단계 0점, 1~4단계 20·45·70·90점)이며 팀 확정 전 제안이다.
+`LEVEL_SCORES`(0단계 0점, 1~4단계 20·45·70·90점)이다.
 
 `payload`는 정상 면접 한 건 전체다.
 
@@ -97,15 +97,14 @@ retrieval query, tool 입력에 들어가면 안 된다.
 - 통과 조건은 `stronger`의 `key` 점수가 `weaker`보다 `min_gap`점 이상 높은 것이다. 다른 key는 이
   쌍에서 비교하지 않는다. `min_gap` 10은 임시 값이며 실행기로 점수 흔들림을 잰 뒤 다시 정한다.
 - 작성 규칙(검수자가 확인): 설계상 두 사례의 `key` 점수 차이가 `min_gap`의 두 배 이상이어야 한다.
-  점수는 해당 key를 평가하는 턴들의 평균이라고 가정한다. `technical_reasoning`·`problem_solving`·
+  점수는 해당 key를 평가한 턴들의 평균이며, 질문이 그 key를 묻지 않은 턴은 평균에서 뺀다. `technical_reasoning`·`problem_solving`·
   `project_understanding`은 `tech_lead` 6턴, `company_job_fit`은 `domain_lead` 2턴,
   `contribution_clarity`는 `hr_manager` 1턴이 근거이므로 근거 턴이 많은 key는 여러 턴의 답변을 함께
-  바꿔야 한다. 이 평균 방식은 아직 팀 확정 전이다.
+  바꿔야 한다.
 - 쌍을 만들 수 없는 사례는 `pair`를 생략한다. 이 사례는 순서 판정에서 빼고 건수를 따로 적으며
   통과로 세지 않는다.
 - 모든 `report` 사례의 출력에는 순서 판정과 별도로 형식 검사를 한다: 6개 key가 모두 있고 key 점수와
-  `totalScore`가 0~100 정수이며, `totalScore`가 key 점수 평균과 1 이하로 다르다. 정수 반올림 규칙은
-  팀 확정 전이다.
+  `totalScore`가 0~100 정수이며, `totalScore`가 key 점수 평균과 1 이하로 다르다.
 - `evals/report_check.py`의 `grade_reports`가 출력(공개 리포트 모양: `totalScore`, `scores[{key, score}]`)
   에 형식 검사와 쌍 순서 판정을 한다. 출력 키는 `r-0001.v1` 같은 파일 이름 stem이다. 출력이 없거나
   형식이 틀린 쌍은 통과가 아니고, 쌍 없는 사례는 건수로 따로 적는다. 기본으로 둘 다 `approved`인 쌍만
