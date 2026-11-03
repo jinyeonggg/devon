@@ -13,13 +13,13 @@ def evidence(evidence_id="m1"):
     )
 
 
-def turn(n, persona, follows=None):
-    return c.ReportTurn(f"turn-{n}", persona, f"질문{n}", f"답변{n}", follows, None)
+def turn(n, persona, follows=None, evidence=()):
+    return c.ReportTurn(f"turn-{n}", persona, f"질문{n}", f"답변{n}", follows, None, evidence)
 
 
 def report_input(**changes):
     base = c.ReportInput(
-        (turn(1, "hr_manager"), turn(2, "tech_lead"), turn(3, "domain_lead")),
+        (turn(1, "hr_manager"), turn(2, "tech_lead", evidence=("m1",)), turn(3, "domain_lead")),
         (evidence(),),
         (),
     )
@@ -196,3 +196,24 @@ def test_decode_reads_a_model_output_and_drops_nothing_required():
     del raw["summary"]
     with pytest.raises(c.ContractError):
         c.decode(c.ReportNarrative, raw)
+
+
+def test_evidence_must_belong_to_a_cited_turn():
+    # m1은 turn-2에만 묶여 있다. turn-3을 인용하며 m1을 쓰면 근거가 다른 턴의 것이다.
+    with pytest.raises(c.ContractError, match="evidence_refs"):
+        check(claim_in_summary(turns=("turn-3",), evidences=("m1",)))
+    # 여러 턴을 인용하면 그중 한 턴에 묶인 근거면 된다.
+    check(claim_in_summary(turns=("turn-3", "turn-2"), evidences=("m1",)))
+
+
+def test_an_evidence_only_claim_needs_evidence_linked_to_some_turn():
+    source = report_input(evidence=(evidence("m1"), evidence("m2")))  # m2는 어느 턴에도 없다
+    check(claim_in_summary(turns=(), evidences=("m1",)), source)
+    with pytest.raises(c.ContractError, match="evidence_refs"):
+        check(claim_in_summary(turns=(), evidences=("m2",)), source)
+
+
+def test_a_turn_cannot_link_unregistered_evidence():
+    source = report_input(turns=(turn(1, "hr_manager", evidence=("m9",)),))
+    with pytest.raises(c.ContractError, match="evidence_refs"):
+        c.validate_report_input(source)

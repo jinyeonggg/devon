@@ -1264,7 +1264,11 @@ TAG_MAX_CHARS = 20  # 임의값. FE 태그 용도 확인 뒤 조정한다.
 
 @dataclass(frozen=True)
 class ReportTurn(_Contract):
-    """서술 입력의 확정 문답 한 턴. follows는 후속 질문이 가리키는 이전 턴의 turn_id다."""
+    """서술 입력의 확정 문답 한 턴.
+
+    follows는 후속 질문이 가리키는 이전 턴의 turn_id다. evidence_refs는 이 턴의 질문 근거와
+    평가 근거로 등록된 evidence_id이며, 서술 항목이 근거를 인용할 수 있는 범위를 정한다.
+    """
 
     turn_id: str
     persona: PersonaId
@@ -1272,6 +1276,7 @@ class ReportTurn(_Contract):
     answer: str
     follows: str | None
     analysis: AnswerAnalysis | None
+    evidence_refs: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -1337,7 +1342,10 @@ def validate_report_input(report_input: ReportInput) -> ReportInput:
             raise ContractError("semantic", "follows")
     if any(item.turn_id not in ids for item in report_input.tool_results):
         raise ContractError("semantic", "tool result turn")
-    _unique(tuple(i.evidence_id for i in report_input.evidence if i.evidence_id), "evidence_id")
+    registered = tuple(i.evidence_id for i in report_input.evidence if i.evidence_id)
+    _unique(registered, "evidence_id")
+    for item in report_input.turns:
+        _references(item.evidence_refs, frozenset(registered), "turn evidence_refs")
     return report_input
 
 
@@ -1346,8 +1354,8 @@ def validate_narrative(
 ) -> ContractChecked[ReportNarrative]:
     """코드로 판정할 수 있는 규칙만 검사한다. 보완 반영·단정 표현 같은 의미 품질은 검사하지 못한다.
 
-    evidence_refs는 등록된 근거 ID인지만 확인한다. 근거가 인용한 턴에 묶여 있는지는 근거와 턴의
-    연결을 입력에 싣는 형식이 정해진 뒤에 검사한다.
+    evidence_refs는 인용한 턴(turn_refs)에 묶인 근거여야 한다. 턴을 인용하지 않고 근거만 인용하는
+    항목은 어느 턴에든 묶인 근거여야 한다.
     """
     _convert(ReportNarrative, candidate, "narrative", wire=False)
     validate_report_input(report_input)
@@ -1357,7 +1365,8 @@ def validate_narrative(
     if sorted(personas) != sorted(NARRATIVE_PERSONAS):
         raise ContractError("semantic", "persona_feedbacks")
     turn_ids = frozenset(turn.turn_id for turn in report_input.turns)
-    evidence_ids = frozenset(i.evidence_id for i in report_input.evidence if i.evidence_id)
+    linked = {turn.turn_id: frozenset(turn.evidence_refs) for turn in report_input.turns}
+    linked_anywhere = frozenset().union(*linked.values())
     summary = candidate.summary
     claims = [*summary.strengths, *summary.gaps, *summary.follow_ups, *summary.practice_actions]
     for item in candidate.persona_feedbacks:
@@ -1369,7 +1378,13 @@ def validate_narrative(
         if not claim.turn_refs and not claim.evidence_refs:
             raise ContractError("semantic", "claim basis")
         _references(claim.turn_refs, turn_ids, "turn_refs")
-        _references(claim.evidence_refs, evidence_ids, "evidence_refs")
+        # 턴을 인용했다면 그 턴들에 묶인 근거만, 근거만 인용했다면 어느 턴에든 묶인 근거를 허용한다.
+        allowed = (
+            frozenset().union(*(linked[ref] for ref in claim.turn_refs))
+            if claim.turn_refs
+            else linked_anywhere
+        )
+        _references(claim.evidence_refs, allowed, "evidence_refs")
     return _checked(candidate)
 
 

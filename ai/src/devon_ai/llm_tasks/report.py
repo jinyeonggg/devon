@@ -57,6 +57,7 @@ def _payload(report_input: c.ReportInput) -> dict[str, object]:
                 "question": turn.question,
                 "answer": turn.answer,
                 "follows": turn.follows,
+                "evidence_refs": list(turn.evidence_refs),
                 "analysis": None if turn.analysis is None else asdict(turn.analysis),
             }
             for turn in report_input.turns

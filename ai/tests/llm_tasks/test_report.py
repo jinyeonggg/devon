@@ -12,15 +12,15 @@ LIMITS = c.CallLimits(1, 4096, 65536, 65536)
 REF = "a" * 40
 
 
-def turn(n, persona, follows=None):
-    return c.ReportTurn(f"turn-{n}", persona, f"질문{n}", f"답변{n}", follows, None)
+def turn(n, persona, follows=None, evidence=()):
+    return c.ReportTurn(f"turn-{n}", persona, f"질문{n}", f"답변{n}", follows, None, evidence)
 
 
 TOOL_ERROR = c.ToolResult("tool_error", (), (), ("조회 실패",), "tool_failed")
 INPUT = c.ReportInput(
     (
         turn(1, "hr_manager"),
-        turn(2, "tech_lead"),
+        turn(2, "tech_lead", evidence=("m1",)),
         turn(3, "domain_lead"),
         turn(4, "tech_lead", follows="turn-2"),
     ),
@@ -80,6 +80,7 @@ def test_request_carries_follow_up_and_tool_status_but_no_score(run, kit):
     assert request.schema_name == "ReportNarrative"
     turns = request.payload["turns"]
     assert turns[3]["follows"] == "turn-2" and turns[1]["follows"] is None
+    assert turns[1]["evidence_refs"] == ["m1"] and turns[0]["evidence_refs"] == []
     assert request.payload["tool_results"][0]["result"]["status"] == "tool_error"
     assert "score" not in json.dumps(request.payload, ensure_ascii=False).lower()
 
