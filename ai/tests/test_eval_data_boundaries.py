@@ -389,3 +389,59 @@ def test_follows_must_name_an_earlier_turn(tmp_path, follows):
     else:
         with pytest.raises(CaseError, match="follows"):
             load_cases(tmp_path)
+
+
+def _solo(**payload):
+    case = _report_input("r-1", "a")
+    case["payload"].update(payload)
+    return case
+
+
+def _load_solo(tmp_path, case):
+    _pair(tmp_path, case, _expectation("r-1"))
+    return load_cases(tmp_path)
+
+
+def test_turn_evidence_refs_and_tool_results_load_when_valid(tmp_path):
+    case = _solo(
+        evidence=[{"ref": "m1", "path": "p", "lines": "1", "text": "t"}],
+        tool_results=[
+            {"turn": 1, "status": "tool_error", "limitations": ["조회 실패"], "error_code": "x"},
+            {"turn": 1, "status": "not_found", "limitations": [], "error_code": None},
+        ],
+    )
+    case["payload"]["history"][0]["evidence_refs"] = ["m1"]
+    assert _load_solo(tmp_path, case)
+
+
+@pytest.mark.parametrize("linked", [["m9"], ["m1", "m1"], "m1", [1]])
+def test_turn_evidence_refs_must_name_registered_refs_once(tmp_path, linked):
+    case = _solo(evidence=[{"ref": "m1", "path": "p", "lines": "1", "text": "t"}])
+    case["payload"]["history"][0]["evidence_refs"] = linked
+    with pytest.raises(CaseError, match="evidence_refs"):
+        _load_solo(tmp_path, case)
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        {"turn": 2, "status": "not_found", "limitations": [], "error_code": None},
+        {"turn": 1, "status": "unknown", "limitations": [], "error_code": None},
+        {"turn": 1, "status": "tool_error", "limitations": [], "error_code": "x"},
+        {"turn": 1, "status": "tool_error", "limitations": ["a"], "error_code": None},
+        {"turn": 1, "status": "insufficient_analysis", "limitations": [], "error_code": None},
+        {"turn": 1, "status": "not_found", "limitations": [], "error_code": "x"},
+        {"turn": True, "status": "not_found", "limitations": [], "error_code": None},
+        {"turn": 1, "status": "not_found", "limitations": [" "], "error_code": None},
+        {"turn": 1, "status": "not_found", "limitations": [], "error_code": None, "extra": 1},
+        {"turn": 1, "status": "not_found"},
+    ],
+)
+def test_bad_tool_results_are_rejected(tmp_path, item):
+    with pytest.raises(CaseError, match="tool_results"):
+        _load_solo(tmp_path, _solo(tool_results=[item]))
+
+
+def test_tool_results_must_be_a_list(tmp_path):
+    with pytest.raises(CaseError, match="tool_results"):
+        _load_solo(tmp_path, _solo(tool_results={"turn": 1}))

@@ -77,6 +77,12 @@ retrieval query, tool 입력에 들어가면 안 된다.
   key를 낮게 매기지 않도록 하는 근거다. 실제 Question Contract의 `assumptions`·`basis_refs`는 평가용
   형식에서 뺐다. loader가 모든 `report` 사례에서 이 형식을 검사한다.
 - 턴의 선택 필드 `follows`는 그 턴이 후속 질문인 이전 턴 번호다. 있으면 더 앞선 실제 턴이어야 한다.
+- 턴의 선택 필드 `evidence_refs`는 그 턴의 질문·평가 근거로 쓴 `evidence`의 `ref` 목록이다. 서술이 인용한
+  근거가 인용한 턴에 묶여 있는지 보는 기준이며 없는 ref나 같은 ref를 두 번 쓰면 loader가 거부한다.
+- payload의 선택 필드 `tool_results`는 근거 조회 결과다: `{"turn": 6, "status": "tool_error",
+  "limitations": ["..."], "error_code": "..."}`. `status`는 `found`·`not_found`·
+  `insufficient_analysis`·`tool_error`이고 `tool_error`는 `error_code`와 한계 문구가, `insufficient_analysis`는
+  한계 문구가 필요하다. 서술이 조회 실패(`tool_error`)와 찾지 못함(`not_found`)을 구분하는지 보는 기준이다.
 - `abandoned` 등 비정상 종료는 리포트를 만들지 않으므로 사례로 두지 않는다.
 
 점수 순서 관계는 `expectations`의 선택 필드 `pair`로 쓴다.

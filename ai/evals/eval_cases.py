@@ -173,6 +173,45 @@ def _check_contract(case_id: str, contract: Any) -> None:
         raise CaseError(f"{case_id}: history turn needs a valid question_contract")
 
 
+TOOL_STATUSES = {"found", "not_found", "insufficient_analysis", "tool_error"}
+
+
+def _check_links(case: Case, history: list[dict[str, Any]]) -> None:
+    """Optional turn evidence_refs and payload tool_results must point at real refs and turns."""
+    name = case.case_id
+    evidence = case.payload.get("evidence", [])
+    refs = {item.get("ref") for item in evidence if isinstance(item, dict)}
+    for turn in history:
+        linked = turn.get("evidence_refs", [])
+        if (
+            not isinstance(linked, list)
+            or len(set(map(str, linked))) != len(linked)
+            or not all(isinstance(ref, str) and ref in refs for ref in linked)
+        ):
+            raise CaseError(f"{name}: evidence_refs must name registered evidence refs once each")
+    numbers = {turn["turn"] for turn in history}
+    results = case.payload.get("tool_results", [])
+    if not isinstance(results, list):
+        raise CaseError(f"{name}: tool_results must be a list")
+    for item in results:
+        keys = {"turn", "status", "limitations", "error_code"}
+        if not isinstance(item, dict) or set(item) != keys:
+            raise CaseError(f"{name}: tool_results item needs {sorted(keys)}")
+        limits, code = item["limitations"], item["error_code"]
+        ok = type(item["turn"]) is int and item["turn"] in numbers
+        ok = ok and _one_of(item["status"], TOOL_STATUSES)
+        ok = ok and isinstance(limits, list) and all(_text(text) for text in limits)
+        ok = ok and (code is None or _text(code))
+        if ok and item["status"] == "tool_error":
+            ok = code is not None and bool(limits)
+        if ok and item["status"] == "insufficient_analysis":
+            ok = code is None and bool(limits)
+        if ok and item["status"] in ("found", "not_found"):
+            ok = code is None
+        if not ok:
+            raise CaseError(f"{name}: tool_results item is not a valid ToolResult for a turn")
+
+
 def _history(case: Case) -> list[dict[str, Any]]:
     history = case.payload.get("history")
     turns_ok = isinstance(history, list) and all(isinstance(t, dict) for t in history)
@@ -193,6 +232,7 @@ def _history(case: Case) -> list[dict[str, Any]]:
             type(follows) is not int or follows not in numbers or follows >= turn["turn"]
         ):
             raise CaseError(f"{case.case_id}: follows must name an earlier turn")
+    _check_links(case, history)
     return list(history)
 
 
