@@ -162,7 +162,8 @@ async def read_files(
                 except EvidenceReadError as exc:
                     if exc.code != "evidence_directory":
                         raise
-                    # 합의된 열거 방식이 없어 읽지 않은 범위로 남기고 나머지 경로는 계속 읽는다.
+                    # 디렉터리 열거는 구현하지 않았다.
+                    # 읽지 않은 범위로 남기고 나머지 경로는 계속 읽는다.
                     limitations.append(f"{path}: 디렉터리는 파일로 읽지 않았습니다.")
                     continue
                 searched.append(path)
