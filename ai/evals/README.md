@@ -106,6 +106,10 @@ retrieval query, tool 입력에 들어가면 안 된다.
 - 모든 `report` 사례의 출력에는 순서 판정과 별도로 형식 검사를 한다: 6개 key가 모두 있고 key 점수와
   `totalScore`가 0~100 정수이며, `totalScore`가 key 점수 평균과 1 이하로 다르다. 정수 반올림 규칙은
   팀 확정 전이다.
+- `evals/report_check.py`의 `grade_reports`가 출력(공개 리포트 모양: `totalScore`, `scores[{key, score}]`)
+  에 형식 검사와 쌍 순서 판정을 한다. 출력 키는 `r-0001.v1` 같은 파일 이름 stem이다. 출력이 없거나
+  형식이 틀린 쌍은 통과가 아니고, 쌍 없는 사례는 건수로 따로 적는다. 기본으로 둘 다 `approved`인 쌍만
+  품질 건수에 넣는다(ADR 0009). 서술 판정은 이 검사에 포함하지 않는다.
 
 ## 사례 검수 (작성자 제안, 팀 확인 대기)
 
