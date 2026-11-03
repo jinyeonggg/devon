@@ -11,6 +11,9 @@ AI 로직은 주입된 모델 호출 경계만 소비하고, 구체 transport·�
 
 실제 구현·실행 결과는 [AI 구현·검증 기록](../../spec/ai/implementation.md)에서 확인한다. [구현 인계](../../spec/ai/designs/2026-09-23-ai-foundation.md)의 호출 경계를 따르며 `ModelRequest`와 validator를 주입된 `ModelCall`에 전달하고 `ModelResult`로 검증 결과 또는 typed failure를 반환한다. BE `call_model`이 OpenAI Responses 요청·실패 분류·재시도를 맡고, 부분 배치 재요청도 동일한 `CallBudget`의 총 2회 상한을 공유한다. raw output은 metadata에 보존하되 repr/log에서 제외한다.
 
+공통 호출·설정·prompt loader/seed의 당시 범위는 [PR #56 기반 기록](../../spec/ai/implementation.md#pr-56의-현재-범위)에서 확인한다.
+이 부분 기록을 실제 모델 품질·운영 검수 완료로 확대하지 않으며, 이후 연결·실행 결과는 위 구현 기록에서 확인한다.
+
 운영 제한값 4개는 `.env.example`에서 명시적으로 설정해야 한다. 초기 seed는 외부에서 검수된 7개 PromptSpec과 transaction을 받아 실행한다. DB migration·운영 prompt 본문·ARQ job·실제 모델 평가는 별도 검증 범위다.
 
 `ModelRequest.max_attempts`는 기본 2, 허용 1~2다.
@@ -83,7 +86,9 @@ AI 로직은 주입된 모델 호출 경계만 소비하고, 구체 transport·�
 - [ ] 확정 모델의 실제 계정 접근·호출과 task별 적합성, 운영 budget과 보존 정책의 적용을 확인하기 전 production 호출 완료로 표시하지 않는다.
 - [ ] ADR 0009의 비교 방법 적용을 실제 수치 목표·provider 선택·출시 승인으로 해석하지 않는다.
 
-## 결정 대기와 재개 조건
+<a id="결정-대기와-재개-조건"></a>
+
+## 구현·검증 조건과 검토 범위
 
 모델·호출 정책은 채택된 범위를 유지한다. 아래 항목은 [문서 상태 안내](../README.md#ai-document-status)에 따른 연결·설정·검증 조건이며, 채택되지 않은 상세 계약은 그 범위에서만 검토한다.
 

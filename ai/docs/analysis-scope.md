@@ -22,7 +22,7 @@
 
 L2 의 제약은 `ai/docs/task-05-repo-deep.md` 에서 온다.
 
-> directory path 는 AI-L08 상한 승인 전 자동 재귀·전체 tree·global keyword search 로 확장하지 않는다.
+> directory path를 임의 재귀 탐색·전체 tree·global keyword search로 확장하지 않는다. 기존 허용 범위의 파일 열거·인접 후보 조회도 AI-L08의 [운영 상한을 설정·검증](pipeline.md#ai-runtime-limits)한 뒤 실제 I/O에 연결한다. 상한 설정은 검색 범위를 확대하는 승인이 아니다.
 
 따라서 정밀 분석 대상은 "이 디렉터리를 본다" 가 아니라 **"이 파일 N개를 본다"** 로 열거한다.
 
