@@ -1186,7 +1186,7 @@ ScoreKeyId = Literal[
 ]
 ScoreLevel = Literal[0, 1, 2, 3, 4, "not_applicable"]
 
-# Persona가 평가 후보로 삼는 key. 작성자 제안이며 팀 확인 전이다(후보 밖 key는 모델이 만들 수 없다).
+# Persona가 평가 후보로 삼는 key. 후보 밖 key는 모델이 만들 수 없다.
 SCORE_CANDIDATE_KEYS: dict[PersonaId, tuple[ScoreKeyId, ...]] = {
     "tech_lead": (
         "project_understanding",
