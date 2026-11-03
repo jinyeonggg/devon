@@ -6,8 +6,8 @@ score_key 는 shared/enums.py ScoreKey 와 1:1 이며 CHECK 제약(SCORE_KEYS)�
 세부 기준 문구는 평가 담당 자료 보강에 따라 갱신될 수 있어 rubric 은 JSONB 로 둔다.
 
 ★ 미검수 초안이다. is_active=FALSE 로 시드하며 활성화는 검수 후 별도로 한다(ADR 0018).
-★ rubric 0~4단계를 공개 점수로 바꾸는 단계별 고정 점수는 LEVEL_SCORES 다. 환산표는 이슈
-  댓글 제안(Proposed)이며 팀 확인 전에는 활성화하거나 리포트 프롬프트가 환산하게 두지 않는다.
+★ rubric 0~4단계를 공개 점수로 바꾸는 단계별 고정 점수는 LEVEL_SCORES 다. 환산은 모델이
+  하지 않고 코드가 한다.
 ★ 0단계는 "질문을 받고도 답하지 못함"만 뜻한다. 질문하지 않았거나 근거가 부족한 항목,
   LLM 판정 실패는 점수가 아니라 미관찰·실패이므로 어느 단계에도 대응하지 않는다(task-11).
 """
@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-# rubric 단계 → 공개 점수(0~100). 100점은 도달하지 않는다(만점 남발 방지). 제안 단계(Proposed).
+# rubric 단계 → 공개 점수(0~100). 100점은 도달하지 않는다(만점 남발 방지).
 LEVEL_SCORES: dict[str, int] = {"0": 0, "1": 20, "2": 45, "3": 70, "4": 90}
 
 
