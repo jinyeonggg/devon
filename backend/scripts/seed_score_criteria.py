@@ -5,7 +5,9 @@ docs/db-schema.md / task-03
 score_key 는 shared/enums.py ScoreKey 와 1:1 이며 CHECK 제약(SCORE_KEYS)이 이를 보장한다.
 세부 기준 문구는 평가 담당 자료 보강에 따라 갱신될 수 있어 rubric 은 JSONB 로 둔다.
 
-★ 미검수 초안이다. is_active=FALSE 로 시드하며 활성화는 검수 후 별도로 한다(ADR 0018).
+★ 미검수 초안이다. 신규 행은 is_active=FALSE 로 시드하며 활성화는 검수 후 별도로 한다(ADR 0018).
+  기존 행은 충돌 시 rubric 만 덮어쓰고 is_active 는 유지하므로, 이미 활성인 DB 에 실행하면
+  새 초안이 활성 상태로 적용된다.
 ★ rubric 0~4단계를 공개 점수로 바꾸는 단계별 고정 점수는 LEVEL_SCORES 다. 환산은 모델이
   하지 않고 코드가 한다.
 ★ 0단계는 "질문을 받고도 답하지 못함"만 뜻한다. 질문하지 않았거나 근거가 부족한 항목,
@@ -126,7 +128,9 @@ async def seed_score_criteria(
 
     label_ko/description/rubric/display_order 는 팀 검수에 따라 갱신될 수 있으므로
     존재하는 행이라도 값이 다르면 덮어쓴다 — prompt_versions 와 달리 충돌로 막지 않는다.
-    is_active 는 FALSE 로만 넣고 충돌 시 건드리지 않아, 검수 후 활성화한 값을 되돌리지 않는다.
+    is_active 는 신규 행에만 FALSE 로 넣고 충돌 시 건드리지 않아,
+    검수 후 활성화한 값을 되돌리지 않는다.
+    따라서 이미 활성인 행의 rubric 은 새 초안으로 바뀐 채 활성 상태를 유지한다.
     """
     for criterion in criteria:
         await session.execute(
