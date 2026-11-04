@@ -73,11 +73,28 @@ def test_not_applicable_turns_are_left_out_of_the_mean():
     assert by_key(compute_scores(scored(level)))["technical_reasoning"] == 70
 
 
-def test_total_is_rounded_once_from_the_unrounded_means():
+def test_total_is_the_rounded_mean_of_the_rounded_key_scores():
     # company_job_fit만 1단계(20), 나머지는 2단계(45): (5*45 + 20) / 6 = 40.83.. -> 41
     result = compute_scores(scored(lambda t, k: 1 if k == "company_job_fit" else 2))
     assert by_key(result)["company_job_fit"] == 20
     assert result.total_score == 41
+
+
+def test_total_can_be_rebuilt_from_the_public_key_scores():
+    # 세 key의 평균이 32.5(->33)이고 나머지는 20이면 key 평균으로 계산한 총점은 26이지만
+    # 공개 점수 [33,33,33,20,20,20]의 평균 26.5는 27이어야 한다.
+    low = {"turn-2", "turn-3", "turn-5"}
+    mixed = {"project_understanding", "technical_reasoning", "problem_solving"}
+
+    def level(turn_id, key):
+        if key in mixed:
+            return 1 if turn_id in low else 2
+        return 1
+
+    result = compute_scores(scored(level))
+    scores = [score for _, score in result.key_scores]
+    assert sorted(scores) == [20, 20, 20, 33, 33, 33]
+    assert result.total_score == 27
 
 
 def test_keys_come_back_in_public_order():

@@ -27,13 +27,15 @@ def _half_up(value: Fraction) -> int:
 
 
 def compute_scores(checked: c.ContractChecked[c.ScoreJudgments]) -> ReportScores:
-    """key별로 not_applicable을 뺀 단계 점수의 평균을 내고, totalScore는 key 평균들의 평균이다.
+    """key별로 not_applicable을 뺀 단계 점수의 평균을 half-up 정수로 만든다.
 
-    반올림은 평균을 낸 뒤 한 번만 한다(key별 반올림값으로 total을 다시 평균 내지 않는다).
+    totalScore는 그 정수 6개의 평균을 half-up한 값이다.
+
+    공개되는 key 점수만으로 totalScore를 재현할 수 있다(BE 총점 계산과 같은 규칙).
     """
     if type(checked) is not c.ContractChecked or type(checked.data) is not c.ScoreJudgments:
         raise c.ContractError("schema", "checked score judgments")
-    means: list[tuple[c.ScoreKeyId, Fraction]] = []
+    key_scores: list[tuple[c.ScoreKeyId, int]] = []
     for key in get_args(c.ScoreKeyId):
         scores = [
             LEVEL_SCORES[item.level]
@@ -42,8 +44,7 @@ def compute_scores(checked: c.ContractChecked[c.ScoreJudgments]) -> ReportScores
         ]
         if not scores:  # 검증기가 막지만 기본 점수를 만들지 않으려고 한 번 더 확인한다.
             raise c.ContractError("semantic", "unscorable key")
-        means.append((key, Fraction(sum(scores), len(scores))))
+        key_scores.append((key, _half_up(Fraction(sum(scores), len(scores)))))
     return ReportScores(
-        tuple((key, _half_up(mean)) for key, mean in means),
-        _half_up(sum((mean for _, mean in means), Fraction(0)) / len(means)),
+        tuple(key_scores), _half_up(Fraction(sum(v for _, v in key_scores), len(key_scores)))
     )
