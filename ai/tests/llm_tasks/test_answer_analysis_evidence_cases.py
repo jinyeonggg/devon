@@ -28,13 +28,13 @@ def claim(**changes):
     return {**base, **changes}
 
 
-def request(ref):
+def request(ref, paths=("cache.py",)):
     return {
         "claim_text": CLAIM,
         "purpose": "캐시 적용 코드 확인",
         "repository_id": "repo-1",
         "git_ref": ref,
-        "allowed_paths": ["cache.py"],
+        "allowed_paths": list(paths),
     }
 
 
@@ -75,6 +75,22 @@ def test_request_for_another_ref_is_rejected(kit, run):
         kit.Provider(output), allowed_locations=frozenset({("repo-1", kit.REF, "cache.py")})
     )
     assert result.data is None and result.failure.stage == "semantic"
+
+
+@pytest.mark.parametrize("paths", [("db.py",), ("cache.py", "db.py")])
+def test_request_outside_allowed_paths_at_the_fixed_ref_is_rejected_without_retry(kit, run, paths):
+    # 0003 조건 3: 허용 범위에서 확인할 수 없는 주장은 조회 후보가 아니다.
+    # 같은 repo·고정 SHA라도 허용 위치 밖 경로를 담은 요청은 T3 계약 위반이다.
+    # 그 요청만 빼서 나머지 분석을 살리지 않는다(task-09 ad hoc repair 금지).
+    output = kit.analysis_output(
+        claim_checks=[claim()],
+        needs_verification=True,
+        verification_requests=[request(kit.REF, paths)],
+    )
+    provider = kit.Provider(output)
+    result = run(provider, allowed_locations=frozenset({("repo-1", kit.REF, "cache.py")}))
+    assert result.data is None and result.failure.stage == "semantic"
+    assert len(provider.requests) == 1  # semantic 실패는 재호출하지 않는다(0010).
 
 
 def test_tool_item_at_the_same_path_but_another_ref_is_not_adopted(kit, run):
