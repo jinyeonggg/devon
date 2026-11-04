@@ -248,6 +248,11 @@ test('면접 생성 409 session_limit_exceeded는 진행 중 면접을 안내한
 
 test('부분 실패 run은 실패 화면에서 성공한 저장소 선택으로 이어진다', async ({ page }) => {
   await page.goto(`/interview/failed/${PARTIAL_RUN}`);
+  // 성공한 저장소가 있으면 일시 오류·재시도 안내 대신 부분 실패 안내를 보여 준다.
+  const alert = page.getByRole('alert');
+  await expect(alert).toHaveText(
+    '일부 레포를 분석하지 못했어요. 분석에 성공한 저장소로 면접을 진행할 수 있어요.',
+  );
   await page.getByRole('button', { name: '분석에 성공한 저장소 보기' }).click();
   await expect(page).toHaveURL(new RegExp(`/interview/repos/${PARTIAL_RUN}$`));
   // README 없는 partial 카드와 실패 카드는 서버 선택 조건(L1 succeeded) 밖이라 고를 수 없다.

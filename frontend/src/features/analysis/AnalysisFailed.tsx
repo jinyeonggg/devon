@@ -71,6 +71,9 @@ const DEFAULT_FAILURE = {
   label: '다시 시도',
 };
 
+const PARTIAL_MESSAGE =
+  '일부 레포를 분석하지 못했어요. 분석에 성공한 저장소로 면접을 진행할 수 있어요.';
+
 export default function AnalysisFailed() {
   const { runId = '' } = useParams<{ runId: string }>();
   const navigate = useNavigate();
@@ -119,6 +122,9 @@ export default function AnalysisFailed() {
     retry: false,
   });
   const hasSucceededRepos = !!resultQuery.data?.repositories.some((r) => r.status === 'succeeded');
+  // 결과 조회 전에 그리면 기본 안내가 보였다가 부분 실패 안내로 바뀌므로 조회가 끝난 뒤 안내와 버튼을 그린다.
+  const ready = failed && !resultQuery.isPending;
+  const message = hasSucceededRepos ? PARTIAL_MESSAGE : failure.message;
 
   return (
     <div className="flex min-h-screen flex-col bg-surface text-ink">
@@ -135,7 +141,7 @@ export default function AnalysisFailed() {
             <h1 className="flex-1 text-base font-bold">GitHub 레포를 분석하지 못했어요</h1>
           </div>
 
-          {!failed && !runQuery.isError && (
+          {!ready && !runQuery.isError && (
             <p role="status" className="text-sm text-muted">
               불러오는 중...
             </p>
@@ -148,12 +154,12 @@ export default function AnalysisFailed() {
             />
           )}
 
-          {failed && (
+          {ready && (
             <div
               role="alert"
               className="rounded-card border border-error-soft bg-error-soft px-4 py-3 text-sm text-error"
             >
-              {failure.message}
+              {message}
             </div>
           )}
 
@@ -195,7 +201,7 @@ export default function AnalysisFailed() {
             </ul>
           )}
 
-          {failed && (
+          {ready && (
             <div className="flex gap-2">
               {hasSucceededRepos && (
                 <button
@@ -222,7 +228,12 @@ export default function AnalysisFailed() {
                       state: { postingUrl } satisfies AnalysisInputState,
                     })
                   }
-                  className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-white"
+                  // 부분 실패면 성공한 저장소 보기가 주 버튼이고, 다시 분석은 보조 버튼으로 남긴다.
+                  className={
+                    hasSucceededRepos
+                      ? 'rounded-md border border-line px-4 py-2 text-sm'
+                      : 'rounded-md bg-accent px-4 py-2 text-sm font-bold text-white'
+                  }
                 >
                   {failure.label}
                 </button>
