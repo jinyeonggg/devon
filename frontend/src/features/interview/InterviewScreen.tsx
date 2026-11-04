@@ -12,6 +12,7 @@ import { useInterviewSocket } from '@/features/interview/useInterviewSocket';
 import { useQuestionAudio } from '@/features/interview/useQuestionAudio';
 import { MAX_ANSWER_MS, useAnswerRecorder } from '@/features/interview/useAnswerRecorder';
 import { QUESTION_TEXT_KEY, readQuestionText } from '@/features/interview/questionText';
+import { abandonInterview, type ReselectState } from '@/features/interview/abandon';
 import type { InterviewLastError, MeResponse, Persona } from '@/types/api';
 
 /** 진행 중 오류 문구. 답변 실패(stt_failed·answer_rejected)는 턴 안에서 따로 안내한다. */
@@ -130,6 +131,8 @@ export default function InterviewScreen() {
   const [evidence, setEvidence] = useState<{ repository: string; file: string } | null>(null);
   const [error, setError] = useState<InterviewLastError | null>(null);
   const [leaveModalOpen, setLeaveModalOpen] = useState(false);
+  // abandon 응답을 기다리는 동안 모달을 열어 두고 버튼으로 진행 중임을 보여준다.
+  const [leaving, setLeaving] = useState(false);
   const leaveDialogRef = useRef<HTMLDialogElement>(null);
   const [showQuestionText, setShowQuestionText] = useState(readQuestionText);
   /** 1초마다 흐르는 시계. 남은 시간과 녹음 경과 시간을 이 값으로 계산한다. */
@@ -433,17 +436,15 @@ export default function InterviewScreen() {
     setAnswer(null);
   }
 
-  function handleLeave() {
-    // 서버에 이탈을 알리지 않는다. 명세는 명시적 이탈만 abandoned로 인정하는데
-    // (spec/frontend/features/interview.md:90, backend/docs/pipeline.md:241-242)
-    // 알릴 수단이 계약에 없다 — REST 엔드포인트도, WS 클라이언트 메시지도, close code
-    // 규약도 없다. 서버는 이 종료를 단순 끊김과 구분하지 못한다.
-    // spec/shared/contracts/migration.md의 `명시적 이탈 통지` 행 참고 (PENDING_BE).
-    setLeaveModalOpen(false);
+  async function handleLeave() {
+    // 명시적 이탈은 REST abandon으로 알린다(공통 0009). 재연결 중에도 보낼 수 있다.
+    setLeaving(true);
     recorder.cancel();
     markRecording(id, null);
     closeSocket();
-    navigate('/home', { replace: true });
+    // 요청이 실패해도 홈으로 간다. 이미 완료된 면접일 때만 리포트로 보낸다.
+    const status = await abandonInterview(id).catch(() => null);
+    navigate(status === 'completed' ? `/interview/${id}/report` : '/home', { replace: true });
   }
 
   if (interviewFailed) {
@@ -597,9 +598,6 @@ export default function InterviewScreen() {
           <p className="text-[12px] font-bold text-error">
             {ERROR_MESSAGE[error.reason] ?? '면접 중 문제가 생겼어요.'}
           </p>
-          <p className="mt-1 text-[11px] text-muted">
-            {error.code} · {error.occurredAt}
-          </p>
         </div>
       )}
 
@@ -672,7 +670,11 @@ export default function InterviewScreen() {
             ) : error?.reason === 'repo_unreachable' && interview ? (
               <button
                 type="button"
-                onClick={() => navigate(`/interview/repos/${interview.runId}`)}
+                onClick={() =>
+                  navigate(`/interview/repos/${interview.runId}`, {
+                    state: { previousInterviewId: id } satisfies ReselectState,
+                  })
+                }
                 className="h-10 rounded-lg bg-accent px-5 text-[13px] font-bold text-surface"
               >
                 레포 다시 선택하기
@@ -734,7 +736,7 @@ export default function InterviewScreen() {
       <dialog
         ref={leaveDialogRef}
         onClose={() => setLeaveModalOpen(false)}
-        className="rounded-card bg-surface p-5 text-ink backdrop:bg-ink/40"
+        className="m-auto rounded-card bg-surface p-5 text-ink backdrop:bg-ink/40"
       >
         <div className="flex w-[300px] max-w-full flex-col gap-3">
           <h2 className="text-[15px] font-bold">면접을 종료할까요?</h2>
@@ -745,17 +747,19 @@ export default function InterviewScreen() {
             <button
               type="button"
               autoFocus
+              disabled={leaving}
               onClick={() => setLeaveModalOpen(false)}
-              className="h-10 flex-1 rounded-lg border border-line text-[13px] font-bold"
+              className="h-10 flex-1 rounded-lg border border-line text-[13px] font-bold disabled:opacity-50"
             >
               계속하기
             </button>
             <button
               type="button"
-              onClick={handleLeave}
-              className="h-10 flex-1 rounded-lg bg-error text-[13px] font-bold text-surface"
+              disabled={leaving}
+              onClick={() => void handleLeave()}
+              className="h-10 flex-1 rounded-lg bg-error text-[13px] font-bold text-surface disabled:opacity-50"
             >
-              종료하기
+              {leaving ? '종료하는 중…' : '종료하기'}
             </button>
           </div>
         </div>
