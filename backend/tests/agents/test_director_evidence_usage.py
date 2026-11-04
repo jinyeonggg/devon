@@ -63,23 +63,28 @@ async def test_one_evidence_is_both_question_and_evaluation_basis_of_a_turn(
     options = dict(
         user_id=agent_seed["owner"], interview_id=agent_seed["interview_id"], settings=settings()
     )
+
+    async def links(turn_no):
+        async with agent_sessions() as db:
+            turn = await db.scalar(select(InterviewTurn).where(InterviewTurn.turn_no == turn_no))
+            rows = await db.scalars(select(TurnEvidence).where(TurnEvidence.turn_id == turn.id))
+            return {(row.evidence_id, row.usage) for row in rows}
+
+    both = {(evidence_id, "question_basis"), (evidence_id, "evaluation_basis")}
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http:
         first = await start_director(agent_sessions, call_id=uuid4(), http_client=http, **options)
         assert first.turn_id is not None
-        result = await process_answer(
-            agent_sessions,
-            turn_no=1,
-            text="팀원 담당입니다",
-            call_id=uuid4(),
-            http_client=http,
-            **options,
-        )
-        assert result.failure is None
-    async with agent_sessions() as db:
-        turn = await db.scalar(select(InterviewTurn).where(InterviewTurn.turn_no == 1))
-        links = {
-            (row.evidence_id, row.usage)
-            for row in await db.scalars(select(TurnEvidence).where(TurnEvidence.turn_id == turn.id))
-        }
-    # 같은 근거가 질문을 만든 근거이자 답변 평가의 근거가 될 수 있다(contracts.md usage).
-    assert links == {(evidence_id, "question_basis"), (evidence_id, "evaluation_basis")}
+        for turn_no in (1, 2):
+            result = await process_answer(
+                agent_sessions,
+                turn_no=turn_no,
+                text="팀원 담당입니다",
+                call_id=uuid4(),
+                http_client=http,
+                **options,
+            )
+            assert result.failure is None
+            # 같은 근거가 질문을 만든 근거이자 답변 평가의 근거가 될 수 있다(contracts.md usage).
+            assert await links(turn_no) == both
+    # 평가 근거는 답한 턴에만 붙고, 다음 턴을 처리해도 앞 턴의 연결은 바뀌지 않는다.
+    assert await links(1) == both
