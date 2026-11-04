@@ -9,6 +9,7 @@ import {
   CANDIDATE_PAGE_MS,
   SEED_FAILED_RUN_ID,
   SEED_IN_PROGRESS_RUN_ID,
+  SEED_PARTIAL_RUN_ID,
   SEED_RUN_ID,
   SEED_RUNNING_RUN_ID,
   SEED_TOKEN_INVALID_RUN_ID,
@@ -29,6 +30,11 @@ export type RunRecord = {
   fixedFailureReason?: string;
   /** fixedStatus가 failed일 때 어느 step에서 멈췄는지. */
   failedAtStep?: StepKey;
+  /**
+   * DB partial run. API 상태는 failed로 보이지만 성공한 저장소의 결과 조회는 허용된다.
+   * spec/backend/features/analysis-run.md 부분 실패.
+   */
+  partial?: boolean;
 };
 
 const runs = new Map<string, RunRecord>();
@@ -156,7 +162,7 @@ export function saveDocument(preview: DocumentPreviewResponse) {
 // seed -------------------------------------------------------------------
 
 /**
- * 완료된 run 2건, 실패한 run 2건(jd_fetch_failed, token_invalid), 끝나지 않는 run 1건. 분석을 처음부터 돌리지 않고 후속 화면을 열기 위함이다.
+ * 완료된 run 2건, 실패한 run 2건(jd_fetch_failed, token_invalid), 부분 실패 run 1건, 끝나지 않는 run 1건. 분석을 처음부터 돌리지 않고 후속 화면을 열기 위함이다.
  * SEED_IN_PROGRESS_RUN_ID는 진행 중 seed 면접의 "레포 다시 선택하기"가 410으로 막히지 않게 둔다.
  */
 function seedRuns() {
@@ -188,6 +194,18 @@ function seedRuns() {
     fixedStatus: 'failed',
     fixedFailureReason: 'token_invalid',
     failedAtStep: 'repo_select',
+  });
+
+  // README 없는 저장소가 섞여 run 전체가 partial이 된 경우. BE는 첫 저장소 오류 코드를 사유로 둔다.
+  runs.set(SEED_PARTIAL_RUN_ID, {
+    runId: SEED_PARTIAL_RUN_ID,
+    postingUrl: 'https://www.wanted.co.kr/wd/000000',
+    documentId: null,
+    createdAt: Date.now() - STEP_KEYS.length * STEP_DURATION_MS - 1000,
+    fixedStatus: 'failed',
+    fixedFailureReason: 'no_readme',
+    failedAtStep: 'repo_analyze',
+    partial: true,
   });
 
   runs.set(SEED_RUNNING_RUN_ID, {

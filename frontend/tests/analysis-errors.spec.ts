@@ -5,6 +5,8 @@ const DONE_RUN = '5c7b9e10-0000-4000-8000-00000000aaaa';
 const FAILED_RUN = '5c7b9e10-0000-4000-8000-00000000bbbb';
 const TOKEN_INVALID_RUN = '5c7b9e10-0000-4000-8000-00000000dddd';
 const RUNNING_RUN = '5c7b9e10-0000-4000-8000-00000000eeee';
+// DB partial run. API는 failed지만 성공한 저장소의 결과는 조회된다(analysis-run.md 부분 실패).
+const PARTIAL_RUN = '5c7b9e10-0000-4000-8000-00000000ffff';
 const RUN_GET = new RegExp(`/analysis-runs/${RUNNING_RUN}$`);
 const RUN_EVENTS = new RegExp(`/analysis-runs/${RUNNING_RUN}/events$`);
 const POSTING_URL = 'https://www.wanted.co.kr/wd/999999';
@@ -242,4 +244,28 @@ test('면접 생성 409 session_limit_exceeded는 진행 중 면접을 안내한
   await page.goto(`/interview/repos/${DONE_RUN}`);
   await page.getByRole('button', { name: '선택한 레포로 면접 시작' }).click();
   await expect(page.getByRole('alert')).toContainText('이미 진행 중인 면접이 있어요.');
+});
+
+test('부분 실패 run은 실패 화면에서 성공한 저장소 선택으로 이어진다', async ({ page }) => {
+  await page.goto(`/interview/failed/${PARTIAL_RUN}`);
+  await page.getByRole('button', { name: '분석에 성공한 저장소 보기' }).click();
+  await expect(page).toHaveURL(new RegExp(`/interview/repos/${PARTIAL_RUN}$`));
+  // README 없는 partial 카드와 실패 카드는 서버 선택 조건(L1 succeeded) 밖이라 고를 수 없다.
+  await expect(page.getByRole('button', { name: /batch-pipeline/ })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /legacy-crawler/ })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /payment-service/ })).toBeEnabled();
+  // 기본 선택된 succeeded 추천 레포로 면접을 만들고 준비 화면까지 간다.
+  await page.getByRole('button', { name: '선택한 레포로 면접 시작' }).click();
+  await expect(page).toHaveURL(/\/interview\/[^/]+\/prepare$/);
+});
+
+test('결과가 없는 실패 run은 성공한 저장소 보기 버튼을 보여주지 않는다', async ({ page }) => {
+  const result = page.waitForResponse((response) =>
+    response.url().endsWith(`/analysis-runs/${FAILED_RUN}/result`),
+  );
+  await page.goto(`/interview/failed/${FAILED_RUN}`);
+  // 진짜 실패한 run은 결과 조회가 409 not_ready다. 응답을 받은 뒤에도 버튼이 없어야 한다.
+  expect((await result).status()).toBe(409);
+  await expect(page.getByRole('alert')).toContainText('공고를 불러오지 못했어요.');
+  await expect(page.getByRole('button', { name: '분석에 성공한 저장소 보기' })).toHaveCount(0);
 });

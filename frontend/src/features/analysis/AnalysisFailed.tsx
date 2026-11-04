@@ -90,7 +90,8 @@ export default function AnalysisFailed() {
   // 실패 사유는 200 응답 안의 값이라 전역 오류 처리가 보지 못한다.
   // refreshMeIfTokenInvalid는 HTTP reason(github_token_invalid) 기준이라 job 코드 token_invalid를 변환해 넘긴다.
   useEffect(
-    () => refreshMeIfTokenInvalid(failureReason === 'token_invalid' ? 'github_token_invalid' : null),
+    () =>
+      refreshMeIfTokenInvalid(failureReason === 'token_invalid' ? 'github_token_invalid' : null),
     [failureReason],
   );
   // 실패하지 않은 run으로 직접 들어오면(링크·기록 이동) 맞는 화면으로 보낸다.
@@ -109,6 +110,15 @@ export default function AnalysisFailed() {
   const stepStatus: Partial<Record<StepKey, StepStatus>> = Object.fromEntries(
     (run?.steps ?? []).map((s) => [s.key, s.status]),
   );
+  // DB partial run은 API에서 failed로 보이지만 성공한 저장소의 결과는 조회된다(analysis-run.md 부분 실패).
+  // 상태값만으로는 구분할 수 없어 결과 조회로 판단한다. 진짜 실패한 run은 409 not_ready라 버튼을 숨긴다.
+  const resultQuery = useQuery({
+    queryKey: queryKeys.analysisResult(runId),
+    queryFn: () => api.getAnalysisRunResult(runId),
+    enabled: failed,
+    retry: false,
+  });
+  const hasSucceededRepos = !!resultQuery.data?.repositories.some((r) => r.status === 'succeeded');
 
   return (
     <div className="flex min-h-screen flex-col bg-surface text-ink">
@@ -187,6 +197,15 @@ export default function AnalysisFailed() {
 
           {failed && (
             <div className="flex gap-2">
+              {hasSucceededRepos && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/interview/repos/${runId}`, { state: inputState })}
+                  className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-white"
+                >
+                  분석에 성공한 저장소 보기
+                </button>
+              )}
               {failure.action === 'relink' && (
                 <a
                   href={`${BASE}/auth/github/link`}
