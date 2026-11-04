@@ -258,6 +258,27 @@ async def test_one_verified_primary_is_enough_and_invalid_repo_adds_no_evidence(
         assert sources == {ready["repo_id"]}
 
 
+async def test_cached_l2_keeps_reread_areas_when_another_area_cannot_be_read(agent_sessions, ready):
+    missing = dict(area(), path="missing.py", observation="사라진 파일")
+    async with agent_sessions.begin() as db:
+        row = await db.scalar(select(RepoAnalysis).where(RepoAnalysis.analysis_level == "l2"))
+        row.notable_areas = [area(), missing]
+        row.result = dict(
+            analysis=deep(ready) | dict(notable_areas=[area(), missing]), rejected_areas=[]
+        )
+    transport = Transport(ready)
+    assert await run(agent_sessions, ready, transport)
+    # 다시 읽지 못한 area만 근거에서 빼고 한계로 남긴다. 저장소 전체를 버리거나 재분석하지 않는다
+    # (0008 L2 관찰 분리, 0010 유효 area 1개 이상이면 준비 성공).
+    assert transport.model_operations == ["plan", "review"]
+    async with agent_sessions() as db:
+        assert list(await db.scalars(select(Evidence.path))) == [PATH]
+        interview = await db.get(InterviewSession, ready["interview_id"])
+        notes = interview.context_state["preparation_repository_limitations"][str(ready["repo_id"])]
+        assert any("missing.py" in note for note in notes)
+        assert "l2_cache_source_mismatch" not in notes
+
+
 @pytest.mark.parametrize("field", ["prompt_version", "head_sha"])
 async def test_l2_cache_is_reused_only_for_matching_sha_and_prompt(agent_sessions, ready, field):
     stale = dict(prompt_version="repo_deep_v0", head_sha="e" * 40)[field]
