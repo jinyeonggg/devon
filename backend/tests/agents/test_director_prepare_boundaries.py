@@ -168,7 +168,11 @@ async def test_source_collection_rejects_l1_from_another_snapshot_without_github
 
 async def test_only_first_two_selected_repositories_become_primary(agent_sessions, ready):
     async with agent_sessions.begin() as db:
-        await db.execute(update(SessionRepository).values(display_order=0))
+        await db.execute(
+            update(SessionRepository)
+            .where(SessionRepository.repository_id == ready["repo_id"])
+            .values(display_order=0)
+        )
     second = await add_repository(agent_sessions, ready, 1, cached=True)
     third = await add_repository(agent_sessions, ready, 2, cached=False)
     transport = Repositories(
@@ -201,6 +205,8 @@ async def test_partial_run_can_prepare_but_failed_run_cannot(agent_sessions, rea
     transport = Transport(ready)
     prepared = await run(agent_sessions, ready, transport)
     # run의 일반 partial은 준비 실패가 아니다. 실패한 run만 입력 불가로 막는다.
+    # API는 partial을 failed로 보여 주지만 성공한 저장소의 결과·후보 조회는 허용하므로
+    # (analysis-run.md 부분 실패 기준, openapi AnalysisRunResult), 그 후보로 만든 면접은 준비한다.
     if status == "partial":
         assert prepared
     else:
@@ -236,7 +242,11 @@ async def test_one_verified_primary_is_enough_and_invalid_repo_adds_no_evidence(
     agent_sessions, ready
 ):
     async with agent_sessions.begin() as db:
-        await db.execute(update(SessionRepository).values(display_order=0))
+        await db.execute(
+            update(SessionRepository)
+            .where(SessionRepository.repository_id == ready["repo_id"])
+            .values(display_order=0)
+        )
     second = await add_repository(agent_sessions, ready, 1, cached=False)
     inner = Transport(ready, miss=True)
     inner.outputs[1] = unusable({**ready, "repo_id": second[0]})
