@@ -264,6 +264,25 @@ test('부분 실패 run은 실패 화면에서 성공한 저장소 선택으로 
   await expect(page).toHaveURL(/\/interview\/[^/]+\/prepare$/);
 });
 
+test('부분 실패 run은 결과 조회 전에 기본 실패 안내를 그리지 않는다', async ({ page }) => {
+  // DOM에 붙었던 alert 문구를 모두 기록한다. 잠깐 보였다 바뀐 문구도 남는다.
+  await page.addInitScript(() => {
+    const seen: string[] = [];
+    (window as unknown as { alertTexts: string[] }).alertTexts = seen;
+    new MutationObserver(() => {
+      document.querySelectorAll('[role="alert"]').forEach((el) => seen.push(el.textContent ?? ''));
+    }).observe(document, { childList: true, subtree: true, characterData: true });
+  });
+  await page.goto(`/interview/failed/${PARTIAL_RUN}`);
+  await expect(page.getByRole('alert')).toHaveText(
+    '일부 레포를 분석하지 못했어요. 분석에 성공한 저장소로 면접을 진행할 수 있어요.',
+  );
+  const seen = await page.evaluate(
+    () => (window as unknown as { alertTexts: string[] }).alertTexts,
+  );
+  expect(seen.filter((text) => text.includes('일시적인 문제'))).toEqual([]);
+});
+
 test('결과가 없는 실패 run은 성공한 저장소 보기 버튼을 보여주지 않는다', async ({ page }) => {
   const result = page.waitForResponse((response) =>
     response.url().endsWith(`/analysis-runs/${FAILED_RUN}/result`),
