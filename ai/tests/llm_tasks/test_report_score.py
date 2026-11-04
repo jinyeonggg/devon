@@ -89,12 +89,23 @@ def test_bad_input_never_reaches_the_model(run, kit, options):
     ("raw", "stage"),
     [
         ({**output(), "total_score": 80}, "schema"),
+        (
+            {"judgments": [{**output()["judgments"][0], "score": 80}, *output()["judgments"][1:]]},
+            "schema",
+        ),
         ({"judgments": [{"turn_id": "turn-1", "key": "communication", "level": 9}]}, "schema"),
         ({"judgments": output()["judgments"][:-1]}, "semantic"),
         ({"judgments": output()["judgments"] * 2}, "semantic"),
         (output("not_applicable"), "semantic"),
     ],
-    ids=["extra field", "bad level", "missing pair", "duplicates", "nothing scorable"],
+    ids=[
+        "extra field",
+        "extra judgment field",
+        "bad level",
+        "missing pair",
+        "duplicates",
+        "nothing scorable",
+    ],
 )
 def test_bad_model_output_is_a_typed_failure_not_a_score(run, kit, raw, stage):
     result = run(kit.Provider(raw))

@@ -44,6 +44,19 @@ def persona(name):
     }
 
 
+EMPTY_SUMMARY = {key: [] for key in ("strengths", "gaps", "follow_ups", "practice_actions")}
+
+
+def empty_persona(name, limitations=()):
+    return {
+        **persona(name),
+        "strengths": [],
+        "improvements": [],
+        "practice_actions": [],
+        "limitations": list(limitations),
+    }
+
+
 def output(**changes):
     raw = {
         "headline": "근거를 갖고 설명하는 지원자",
@@ -71,6 +84,14 @@ def test_valid_narrative_comes_back_checked_without_any_score(run, kit):
     result = run(kit.Provider(output()))
     assert result.succeeded
     assert "score" not in json.dumps(c.to_data(result.data), ensure_ascii=False).lower()
+
+
+def test_only_limitations_is_a_narrative_that_admits_what_it_could_not_say(run, kit):
+    only_limits = [
+        empty_persona(p, ["근거 조회 실패로 서술하지 못함"]) for p in c.NARRATIVE_PERSONAS
+    ]
+    result = run(kit.Provider(output(summary=EMPTY_SUMMARY, persona_feedbacks=only_limits)))
+    assert result.succeeded
 
 
 def test_request_carries_follow_up_and_tool_status_but_no_score(run, kit):
@@ -122,8 +143,34 @@ def test_bad_input_never_reaches_the_model(run, kit, options):
             "semantic",
         ),
         ({k: v for k, v in output().items() if k != "summary"}, "schema"),
+        (output(summary={**output()["summary"], "score": 80}), "schema"),
+        (
+            output(persona_feedbacks=[{**persona(p), "score": 80} for p in c.NARRATIVE_PERSONAS]),
+            "schema",
+        ),
+        (
+            output(summary={**output()["summary"], "strengths": [{**claim(), "score": 80}]}),
+            "schema",
+        ),
+        (
+            output(
+                summary=EMPTY_SUMMARY,
+                persona_feedbacks=[empty_persona(p) for p in c.NARRATIVE_PERSONAS],
+            ),
+            "semantic",
+        ),
     ],
-    ids=["score field", "multiline headline", "missing persona", "unknown turn", "missing summary"],
+    ids=[
+        "score field",
+        "multiline headline",
+        "missing persona",
+        "unknown turn",
+        "missing summary",
+        "extra summary field",
+        "extra persona field",
+        "extra claim field",
+        "nothing narrated",
+    ],
 )
 def test_bad_model_output_is_a_typed_failure(run, kit, raw, stage):
     result = run(kit.Provider(raw))

@@ -103,10 +103,12 @@ async def write_narrative(
         return c.ModelResult(None, failure, ())
 
     def validate(raw: object) -> NarrativeChecked:
-        # 계약 밖의 최상위 필드(점수 등)를 조용히 버리지 않고 schema 실패로 처리한다.
+        # 계약 밖의 필드(점수 등)는 중첩 객체까지 조용히 버리지 않고 schema 실패로 처리한다.
         if type(raw) is not dict or set(raw) != {"headline", "summary", "persona_feedbacks"}:
             raise c.ContractError("schema", "ReportNarrative")
-        return c.validate_narrative(c.decode(c.ReportNarrative, raw), report_input=report_input)
+        return c.validate_narrative(
+            c.decode_strict(c.ReportNarrative, raw), report_input=report_input
+        )
 
     result = await model_call(request, validate)
     if result.data is None:

@@ -98,10 +98,10 @@ async def judge_scores(
         return c.ModelResult(None, failure, ())
 
     def validate(raw: object) -> ScoreChecked:
-        # 계약 밖의 최상위 필드(점수 등)를 조용히 버리지 않고 schema 실패로 처리한다.
+        # 계약 밖의 필드(점수 등)는 중첩 객체까지 조용히 버리지 않고 schema 실패로 처리한다.
         if type(raw) is not dict or set(raw) != {"judgments"}:
             raise c.ContractError("schema", "ScoreJudgments")
-        return c.validate_score_judgments(c.decode(c.ScoreJudgments, raw), turns=turns)
+        return c.validate_score_judgments(c.decode_strict(c.ScoreJudgments, raw), turns=turns)
 
     result = await model_call(request, validate)
     if result.data is None:

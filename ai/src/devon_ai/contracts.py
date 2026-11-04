@@ -224,6 +224,28 @@ def decode[T: _Contract](contract_type: type[T], payload: object) -> T:
     return cast(T, _convert(contract_type, payload, contract_type.__name__, wire=True))
 
 
+def _reject_extra(annotation: object, value: object) -> None:
+    args = get_args(annotation)
+    if get_origin(annotation) is tuple and len(args) == 2 and args[1] is Ellipsis:
+        if type(value) is list:
+            for item in value:
+                _reject_extra(args[0], item)
+    elif isinstance(annotation, type) and issubclass(annotation, _Contract):
+        if type(value) is dict and is_dataclass(annotation):
+            hints = get_type_hints(annotation)
+            extra = set(value) - set(hints)
+            if extra:
+                raise ContractError("schema", min(extra))
+            for name, item in value.items():
+                _reject_extra(hints[name], item)
+
+
+def decode_strict[T: _Contract](contract_type: type[T], payload: object) -> T:
+    """decode와 같지만 중첩 객체의 계약 밖 필드도 버리지 않고 schema 실패로 처리한다."""
+    _reject_extra(contract_type, payload)
+    return decode(contract_type, payload)
+
+
 def _unique(values: tuple[object, ...], name: str) -> None:
     if len(set(values)) != len(values):
         raise ContractError("semantic", name)
@@ -1385,6 +1407,8 @@ def validate_narrative(
             else linked_anywhere
         )
         _references(claim.evidence_refs, allowed, "evidence_refs")
+    if not claims and not any(item.limitations for item in candidate.persona_feedbacks):
+        raise ContractError("semantic", "empty narrative")
     return _checked(candidate)
 
 
