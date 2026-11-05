@@ -60,6 +60,7 @@ def _payload(report_input: c.ReportInput) -> dict[str, object]:
                 "persona": turn.persona,
                 "question": turn.question,
                 "answer": turn.answer,
+                "question_contract": asdict(turn.question_contract),
                 "follows": turn.follows,
                 "evidence_refs": list(turn.evidence_refs),
                 "analysis": None if turn.analysis is None else asdict(turn.analysis),
@@ -203,13 +204,17 @@ def _build_inputs(
             evidence.setdefault(cast(str, item.evidence_id), item)
             if item.evidence_id not in refs:  # 같은 근거가 질문 근거이자 평가 근거일 수 있다.
                 refs.append(cast(str, item.evidence_id))
+        # BE는 미답변 턴을 빈 문자열로 보낸다. 질문했지만 답하지 않은 턴은 None으로 구분한다.
+        answer = turn.get("answer")
+        if type(answer) is str and not answer.strip():
+            answer = None
         score_turn = c.decode(
             c.ScoreTurn,
             {
                 "turn_id": turn_id,
                 "persona": turn.get("persona"),
                 "question": turn.get("question"),
-                "answer": turn.get("answer"),
+                "answer": answer,
                 "question_contract": turn.get("question_contract"),
             },
         )
@@ -224,6 +229,7 @@ def _build_inputs(
                 follows=None if parent is None else str(parent),
                 analysis=None if analysis is None else c.decode(c.AnswerAnalysis, analysis),
                 evidence_refs=tuple(refs),
+                question_contract=score_turn.question_contract,
             )
         )
     # 근거 조회 결과(ToolResult)는 BE가 저장하지 않아 비워 둔다.
@@ -235,15 +241,43 @@ def _claims(items: tuple[c.NarrativeClaim, ...]) -> list[str]:
     return [item.text for item in items]
 
 
+_PERSONA_LABELS = {
+    "hr_manager": "인사 담당",
+    "tech_lead": "기술 리드",
+    "domain_lead": "도메인 리드",
+}
+_PERSONA_SECTIONS = (
+    ("strengths", "강점"),
+    ("improvements", "부족한 점"),
+    ("practice_actions", "연습할 점"),
+)
+
+
+def _bullets(items: tuple[c.NarrativeClaim, ...] | list[str]) -> str:
+    return "\n".join(f"- {item if isinstance(item, str) else item.text}" for item in items)
+
+
 def _summary(narrative: c.ReportNarrative) -> str:
+    """검증된 서술을 버리지 않고 BE summary 문자열로 합친다.
+
+    전체 요약(summary) 배열이 모두 비어 있어도 Persona 서술이 있으면 Persona 이름과 함께 그 내용을
+    쓴다. 서술과 관찰 한계가 모두 비면 검증기가 이미 거절하므로 임의 문구를 만들지 않는다.
+    """
     parts = [
-        f"{label}\n" + "\n".join(f"- {text}" for text in _claims(getattr(narrative.summary, name)))
+        f"{label}\n{_bullets(getattr(narrative.summary, name))}"
         for name, label in _SECTIONS
         if getattr(narrative.summary, name)
     ]
+    if not parts:
+        parts = [
+            f"[{_PERSONA_LABELS[item.persona]}] {label}\n{_bullets(getattr(item, name))}"
+            for item in narrative.persona_feedbacks
+            for name, label in _PERSONA_SECTIONS
+            if getattr(item, name)
+        ]
     limits = [text for item in narrative.persona_feedbacks for text in item.limitations]
-    if limits:  # 서술을 못 한 이유만 있는 결과도 빈 summary가 되지 않게 한다.
-        parts.append("관찰 한계\n" + "\n".join(f"- {text}" for text in limits))
+    if limits:
+        parts.append(f"관찰 한계\n{_bullets(limits)}")
     return "\n\n".join(parts)
 
 
@@ -252,6 +286,10 @@ def _unwrap[T](result: c.ModelResult[c.ContractChecked[T]]) -> c.ContractChecked
         failure = result.failure
         stage = failure.stage if failure else "semantic"
         field = failure.error_code if failure else "model_failed"
+        # 공통 호출 계층은 검증 실패의 세부 field를 일반 코드로 바꾼다. 점수를 낼 수 없는 key는
+        # BE가 구분해 기록하므로 field를 되살린다.
+        if field == report_score.UNSCORABLE_CODE:
+            raise c.ContractError("semantic", "unscorable key")
         raise c.ContractError(stage if stage in ("parse", "schema") else "semantic", field)
     return result.data
 
@@ -270,8 +308,15 @@ async def generate_report(
     """
     score_turns, rubric, report_input = _build_inputs(payload)
     score_prompt, report_prompt = prompts.get("report_score"), prompts.get("report")
-    if score_prompt is None or report_prompt is None:
+    # 모델을 부르기 전에 두 task의 입력을 모두 확인한다(한쪽만 호출되고 끝나지 않게).
+    if type(score_prompt) is not c.PromptSpec or score_prompt.task_name != "report_score":
         raise c.ContractError("schema", "prompts")
+    if type(report_prompt) is not c.PromptSpec or report_prompt.task_name != "report":
+        raise c.ContractError("schema", "prompts")
+    if type(limits) is not c.CallLimits:
+        raise c.ContractError("schema", "limits")
+    report_score.check_input(score_turns, rubric)
+    c.validate_report_input(report_input)
     judged = _unwrap(
         await report_score.judge_scores(
             score_turns,

@@ -13,8 +13,12 @@ def evidence(evidence_id="m1"):
     )
 
 
-def turn(n, persona, follows=None, evidence=()):
-    return c.ReportTurn(f"turn-{n}", persona, f"질문{n}", f"답변{n}", follows, None, evidence)
+CONTRACT = c.QuestionContract("목적", (c.RequiredPoint("k", "내용"),), (), (), "평가 범위")
+
+
+def turn(n, persona, follows=None, evidence=(), answer=None):
+    answer = f"답변{n}" if answer is None else answer
+    return c.ReportTurn(f"turn-{n}", persona, f"질문{n}", answer, follows, None, evidence, CONTRACT)
 
 
 def report_input(**changes):

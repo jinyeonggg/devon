@@ -2,7 +2,7 @@
 
 입력은 다음 항목이다.
 
-- `turns`: 확정 문답 목록이다. 각 항목은 `turn_id`, `persona`, `question`, `answer`(제출한 답변 원문), `follows`(이 턴이 후속 질문으로 이어진 이전 `turn_id`, 없으면 null), `evidence_refs`(이 턴의 질문·평가에 쓰인 근거 ID), `analysis`(이 턴의 답변 분석, 없으면 null)를 가진다.
+- `turns`: 확정 문답 목록이다. 각 항목은 `turn_id`, `persona`, `question`, `answer`(제출한 답변 원문. 질문했지만 답하지 않았다면 null), `question_contract`(질문을 하기 전에 정한 `purpose`, `required_points`, `assumptions`, `basis_refs`, `evaluation_scope`), `follows`(이 턴이 후속 질문으로 이어진 이전 `turn_id`, 없으면 null), `evidence_refs`(이 턴의 질문·평가에 쓰인 근거 ID), `analysis`(이 턴의 답변 분석, 없으면 null)를 가진다.
 - `evidence`: 확보한 근거 목록이다. 각 항목의 `evidence_id`로 가리킨다.
 - `tool_results`: 턴별 근거 조회 결과다. `status`가 `found`(찾음), `not_found`(조회했으나 없음), `insufficient_analysis`(분석 자료 부족), `tool_error`(조회 실패)인 것을 서로 바꾸어 해석하지 않는다.
 
@@ -20,6 +20,7 @@
 
 쓰는 방법은 다음과 같다.
 
+- `question_contract`의 `evaluation_scope`는 그 질문이 평가하려던 범위다. 이 범위 밖의 내용으로 부족하다고 쓰지 않는다. `answer`가 null인 턴은 답하지 않았다는 사실만 쓰고 이유를 추측하지 않는다.
 - 묻지 않은 영역은 관찰하지 못했다고 `limitations`에 쓴다. 질문하지 않은 내용을 부족하다고 쓰거나 낮게 평가하지 않는다.
 - 사용자의 말은 진술로 쓴다. 코드나 주석이 있다는 사실만으로 지원자가 만들었다고 쓰지 않는다. 지원자가 기여를 정정했다면(`follows`로 이어진 후속 답변) 최신 관찰은 정정한 내용으로 쓰되, 앞선 진술은 지우거나 미화하지 않고 정정 전 진술로 남긴다. 정정을 거짓말이나 불성실로 쓰지 않는다.
 - 초기 답변이 부족했는데 후속 답변에서 보완했다면 보완된 상태를 최신 관찰에 반영하고 두 턴을 모두 인용한다. 보완이 없으면 보완됐다고 쓰지 않는다.

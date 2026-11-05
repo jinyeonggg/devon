@@ -11,6 +11,10 @@ from devon_ai import contracts as c
 
 type ScoreChecked = c.ContractChecked[c.ScoreJudgments]
 
+# 점수를 낼 수 없는 key가 있어 실패했을 때의 error_code. 공통 호출 계층은 검증 실패를 일반 코드로
+# 바꾸므로 판정 task가 이 코드로 다시 구분해 BE 실패 기록이 사유를 잃지 않게 한다.
+UNSCORABLE_CODE = "report_score_unscorable"
+
 
 def _output_schema() -> dict[str, object]:
     item = {
@@ -31,7 +35,7 @@ def _output_schema() -> dict[str, object]:
     }
 
 
-def _check_input(turns: tuple[c.ScoreTurn, ...], rubric: tuple[c.RubricLevel, ...]) -> None:
+def check_input(turns: tuple[c.ScoreTurn, ...], rubric: tuple[c.RubricLevel, ...]) -> None:
     if type(turns) is not tuple or not turns or any(type(t) is not c.ScoreTurn for t in turns):
         raise c.ContractError("schema", "turns")
     if len({t.turn_id for t in turns}) != len(turns):
@@ -83,7 +87,7 @@ async def judge_scores(
             raise c.ContractError("schema", "report_score prompt")
         if type(limits) is not c.CallLimits:
             raise c.ContractError("schema", "report_score limits")
-        _check_input(turns, rubric)
+        check_input(turns, rubric)
         request = c.ModelRequest(
             prompt=prompt,
             payload=_payload(turns, rubric),
@@ -97,14 +101,23 @@ async def judge_scores(
         failure = c.CallFailure(exc.stage, "report_score_input_invalid", "Score input rejected.")
         return c.ModelResult(None, failure, ())
 
+    unscorable: list[bool] = []
+
     def validate(raw: object) -> ScoreChecked:
         # 계약 밖의 필드(점수 등)는 중첩 객체까지 조용히 버리지 않고 schema 실패로 처리한다.
         if type(raw) is not dict or set(raw) != {"judgments"}:
             raise c.ContractError("schema", "ScoreJudgments")
-        return c.validate_score_judgments(c.decode_strict(c.ScoreJudgments, raw), turns=turns)
+        try:
+            return c.validate_score_judgments(c.decode_strict(c.ScoreJudgments, raw), turns=turns)
+        except c.ContractError as exc:
+            unscorable[:] = [exc.field == "unscorable key"]
+            raise
 
     result = await model_call(request, validate)
     if result.data is None:
+        if unscorable == [True] and result.failure is not None:
+            failure = c.CallFailure(result.failure.stage, UNSCORABLE_CODE, "No scorable turn.")
+            return c.ModelResult(None, failure, result.attempts)
         return result
     # 주입된 callable이 validator를 생략했더라도 이 문답 기준으로 다시 확인한다.
     checked = result.data

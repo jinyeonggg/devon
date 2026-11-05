@@ -172,3 +172,53 @@ def test_path_evidence_without_a_repository_ref_is_rejected_not_patched(run):
 def test_a_missing_prompt_is_rejected(run):
     with pytest.raises(c.ContractError, match="prompts"):
         run(prompts={"report": PROMPTS["report"]})
+
+
+def test_an_unanswered_turn_is_sent_as_null_and_judged_not_dropped(run):
+    turns = payload()["turns"]
+    turns[4]["answer"] = ""  # BE는 답하지 않은 턴을 빈 문자열로 보낸다
+    raw, (score, narrative) = run(payload(turns=turns))
+    assert score.requests[0].payload["turns"][4]["answer"] is None
+    assert narrative.requests[0].payload["turns"][4]["answer"] is None
+    assert raw["scores"]["communication"]["evidence_turn_nos"] == list(range(1, 10))
+
+
+def test_the_narrative_request_carries_each_turns_question_contract(run):
+    _, (_, narrative) = run()
+    turn = narrative.requests[0].payload["turns"][0]
+    assert turn["question_contract"]["evaluation_scope"] == "평가 범위"
+    assert turn["analysis"] is None  # 분석이 없는 턴에서도 질문 당시의 평가 범위가 남는다
+
+
+def test_persona_only_narrative_still_gives_a_summary(run):
+    narrative = narrative_output()
+    narrative["summary"] = {k: [] for k in ("strengths", "gaps", "follow_ups", "practice_actions")}
+    raw, _ = run(narrative=narrative)
+    assert raw["summary"].startswith("[인사 담당] 강점\n- hr_manager 강점")
+    assert "[기술 리드] 부족한 점" in raw["summary"]
+
+
+def test_no_unscorable_key_detail_is_lost_through_the_call_layer(run):
+    # kit.Provider는 공통 호출 계층처럼 검증 실패를 일반 코드로 바꿔 돌려준다.
+    judgments = [
+        {**j, "level": "not_applicable"} if j["key"] == "company_job_fit" else j
+        for j in score_output()["judgments"]
+    ]
+    with pytest.raises(c.ContractError) as error:
+        run(score={"judgments": judgments})
+    assert error.value.field == "unscorable key"
+
+
+def test_a_bad_report_prompt_stops_everything_before_any_model_call(kit):
+    called = []
+    prompts = {**PROMPTS, "report": PROMPTS["report_score"]}
+    with pytest.raises(c.ContractError, match="prompts"):
+        asyncio.run(
+            report.generate_report(
+                payload(),
+                prompts=prompts,
+                limits=LIMITS,
+                model_call_factory=lambda: called.append(1),
+            )
+        )
+    assert called == []

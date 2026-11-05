@@ -1223,12 +1223,16 @@ SCORE_CANDIDATE_KEYS: dict[PersonaId, tuple[ScoreKeyId, ...]] = {
 
 @dataclass(frozen=True)
 class ScoreTurn(_Contract):
-    """점수 판정 입력의 확정 문답 한 턴. 질문 당시의 Question Contract를 함께 둔다."""
+    """점수 판정 입력의 확정 문답 한 턴. 질문 당시의 Question Contract를 함께 둔다.
+
+    answer가 None이면 질문했지만 지원자가 답하지 않은 턴이다. 질문하지 않은 영역과 다르며,
+    판정은 not_applicable이 아니라 0단계 기준으로 한다.
+    """
 
     turn_id: str
     persona: PersonaId
     question: str
-    answer: str
+    answer: str | None
     question_contract: QuestionContract
 
 
@@ -1290,15 +1294,18 @@ class ReportTurn(_Contract):
 
     follows는 후속 질문이 가리키는 이전 턴의 turn_id다. evidence_refs는 이 턴의 질문 근거와
     평가 근거로 등록된 evidence_id이며, 서술 항목이 근거를 인용할 수 있는 범위를 정한다.
+    answer가 None이면 질문했지만 답하지 않은 턴이다. question_contract는 질문 당시의 평가 범위로,
+    분석 결과(analysis)가 없는 턴에서도 서술이 그 범위를 알 수 있게 한다.
     """
 
     turn_id: str
     persona: PersonaId
     question: str
-    answer: str
+    answer: str | None
     follows: str | None
     analysis: AnswerAnalysis | None
     evidence_refs: tuple[str, ...]
+    question_contract: QuestionContract
 
 
 @dataclass(frozen=True)
