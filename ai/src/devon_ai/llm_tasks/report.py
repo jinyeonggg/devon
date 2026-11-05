@@ -131,8 +131,8 @@ async def write_narrative(
 
 
 # --- BE 진입점 -------------------------------------------------------------------------------
-# BE(#153)의 ReportGenerator Protocol이 부르는 단일 함수다. 점수 판정 → 점수 계산 → 서술 순으로
-# 두 task를 안에서 호출하고 BE validate_draft가 받는 모양으로 돌려준다. 실패는 ContractError다.
+# BE(#153)의 ReportGenerator Protocol이 부르는 단일 함수다. 점수 판정과 서술 두 task를 동시에
+# 호출하고 점수는 코드로 계산해 BE validate_draft가 받는 모양으로 돌려준다. 실패는 ContractError다.
 
 _SECTIONS = (
     ("strengths", "강점"),
@@ -306,6 +306,8 @@ async def generate_report(
     model_call_factory()는 task마다 한 번씩 부른다(task별 CallBudget). 입력이 틀리면 모델을
     부르지 않고, 어느 단계든 실패하면 ContractError로 끝낸다. 보정·기본값으로 채우지 않는다.
     """
+    import asyncio  # 패키지 import 시점에 불러오지 않는다(import 격리 시험)
+
     score_turns, rubric, report_input = _build_inputs(payload)
     score_prompt, report_prompt = prompts.get("report_score"), prompts.get("report")
     # 모델을 부르기 전에 두 task의 입력을 모두 확인한다(한쪽만 호출되고 끝나지 않게).
@@ -317,24 +319,26 @@ async def generate_report(
         raise c.ContractError("schema", "limits")
     report_score.check_input(score_turns, rubric)
     c.validate_report_input(report_input)
-    judged = _unwrap(
-        await report_score.judge_scores(
+    # 두 task는 서로의 결과를 입력으로 받지 않아 동시에 호출한다(worker 지연이 모델 1회분이 된다).
+    # 실패는 예외가 아니라 ModelResult로 오므로 둘 다 끝난 뒤 점수 판정부터 확인한다.
+    judged_result, narrative_result = await asyncio.gather(
+        report_score.judge_scores(
             score_turns,
             rubric=rubric,
             prompt=score_prompt,
             limits=limits,
             model_call=cast(c.ModelCall[report_score.ScoreChecked], model_call_factory()),
-        )
-    )
-    scores = compute_scores(judged)
-    narrative = _unwrap(
-        await write_narrative(
+        ),
+        write_narrative(
             report_input,
             prompt=report_prompt,
             limits=limits,
             model_call=cast(c.ModelCall[NarrativeChecked], model_call_factory()),
-        )
-    ).data
+        ),
+    )
+    judged = _unwrap(judged_result)
+    scores = compute_scores(judged)
+    narrative = _unwrap(narrative_result).data
     return {
         "headline": narrative.headline,
         "summary": _summary(narrative),

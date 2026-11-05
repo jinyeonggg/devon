@@ -139,9 +139,30 @@ def test_only_limitations_still_gives_a_non_empty_summary(run):
     assert raw["summary"] == "관찰 한계\n" + "\n".join(["- 근거를 조회하지 못했다"] * 3)
 
 
-def test_a_failed_score_judgment_stops_before_the_narrative_call(run):
+def test_a_failed_score_judgment_fails_the_report_even_though_the_narrative_ran(run):
+    # 두 task는 동시에 호출하므로 서술도 이미 호출됐지만 리포트는 점수 실패로 끝난다.
     with pytest.raises(c.ContractError):
         run(score={"judgments": []})
+
+
+def test_the_two_tasks_run_concurrently(kit):
+    started, release = [], asyncio.Event()
+
+    async def slow(request, validator):
+        started.append(request.schema_name)
+        if len(started) == 2:  # 둘 다 시작해야 풀린다. 순차 호출이면 영원히 기다린다.
+            release.set()
+        await asyncio.wait_for(release.wait(), 1)
+        raw = score_output() if request.schema_name == "ScoreJudgments" else narrative_output()
+        return c.ModelResult(validator(raw), None, (kit.metadata(),))
+
+    raw = asyncio.run(
+        report.generate_report(
+            payload(), prompts=PROMPTS, limits=LIMITS, model_call_factory=lambda: slow
+        )
+    )
+    assert sorted(started) == ["ReportNarrative", "ScoreJudgments"]
+    assert raw["scores"]
 
 
 @pytest.mark.parametrize(
