@@ -1592,3 +1592,119 @@ YAML·실행 코드 변경, 실제 모델 평가·전체 서비스 실행·운�
 AI 정리는 #109 전체의 BE·FE·shared 문서 구조 결정을 완료한 것이 아니다. 해당 범위는 별도로 처리하거나
 이월해야 한다. 단일 기록 안의 고유 절과 안정 앵커로 편집 범위를 구분하되 여러 PR의 같은 구간 편집
 충돌이 없어졌다고 보장하지 않는다.
+
+
+<a id="issue109-ai-supplement-20261103"></a>
+
+## 2026-11-03 — #109 AI 문서 후속 보완
+
+기준은 develop ` 58966c4 `과 [#179 후속 리뷰](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/pull/179#issuecomment-6600334400)다. 제목·상한 표현·기존 ID 매핑·결과 설명·현황 참조와 공개 근거를 보완했다. 실행 코드·계약·승인 상태·운영 수치를 바꾸거나 구현 기록의 물리 구조를 분리하지 않았다.
+
+### 이번 안내 문구의 대응표
+
+아래 표는 이번 보완에서 바뀐 안내 문구의 비공백 줄을 파일별로 모두 대응시킨다. L 번호는 각각 기준 원문과 보완 문서의 위치이며, 공백·줄바꿈 정리와 이 새 기록 자체는 문구 대응 대상과 구분한다. 원문 근거는 공개된 고정 SHA, 새 문구는 이 보완본의 해당 문서에서 확인한다.
+
+| 대상·기준 원문 | 이전 문구 | 보완 문구 | 기존 근거 | 유지한 의미·제한 |
+| --- | --- | --- | --- | --- |
+| [ai/docs/analysis-scope.md](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/58966c46d8861c55493d9368ba0de2b471aa2c0a/ai/docs/analysis-scope.md#L25) | ` L25: > directory path 는 AI-L08 상한 승인 전 자동 재귀·전체 tree·global keyword search 로 확장하지 않는다. ` | ` L25: > directory path를 임의 재귀 탐색·전체 tree·global keyword search로 확장하지 않는다. 기존 허용 범위의 파일 열거·인접 후보 조회도 AI-L08의 [운영 상한을 설정·검증](pipeline.md#ai-runtime-limits)한 뒤 실제 I/O에 연결한다. 상한 설정은 검색 범위를 확대하는 승인이 아니다. ` | [0018](decisions/0018-existing-baseline-bulk-resolution.md)·[0020](decisions/0020-implementation-record-policy.md) | 검색 범위 확대 금지와 설정·검증 전 실제 I/O 차단을 유지. |
+| [ai/docs/pipeline.md](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/58966c46d8861c55493d9368ba0de2b471aa2c0a/ai/docs/pipeline.md#L101) | ` L101: AI-L04·08의 실제 상한 설정·실측과 AI-L18의 저장 위치·마스킹·접근·보관·재사용 연결도 구현 작업이다. 사용 범위·운영 조건·자료 정책의 채택 내용은 0018을 따르며 숫자·필드·도구 선택을 하나씩 묻지 않는다. 이 표로 구현·검수·출시를 완료 처리하지 않는다. ` | ` L85: 과거 [0003](../../spec/ai/decisions/0003-evidence-lookup-policy.md)의 운영·계약 대기 범위는 후속 [0010의 재시도 책임](../../spec/ai/decisions/0010-sprint1-interface-runtime-decisions.md#llm-attempt와-worker-retry), [0015의 기존 Evidence·ToolResult 채택](../../spec/ai/decisions/0015-existing-contracts-and-tool-results.md), [0018의 운영 설정·실측 기준](../../spec/ai/decisions/0018-existing-baseline-bulk-resolution.md#운영-범위와-남은-구현검증)과 함께 읽는다. 당시 승인 범위 기록은 보존하며, 후속 결정이 채택하지 않은 새 계약·범위까지 승인된 것으로 넓히지 않는다. `<br>` L92: \| AI-L04 \| 실행 상한·재시도 책임. [0008의 실패 분류](../../spec/ai/decisions/0008-ai-candidate-policy.md#구조화-후보-실패)와 [0010](../../spec/ai/decisions/0010-sprint1-interface-runtime-decisions.md#llm-attempt와-worker-retry)에 따라 공통 LLM 호출 계층의 한 요청은 최초 호출과 허용된 재호출을 합쳐 최대 총 2회이며 semantic 실패는 재호출하지 않음. ARQ max_tries=1 유지. runtime 전체·면접 전체의 호출 횟수로 확대하지 않고, timeout·token·Context·동시성·Tool·재작성/재계획 budget과 소진 처리는 [운영 상한 기준](#ai-runtime-limits)으로 구현·검증 \| AI [task-03](task-03-llm-boundary.md)·[08](task-08-evidence-tools.md)·[13](task-13-backend-integration.md), BE LLM 호출 계층·worker \| `<br>` L93: \| AI-L05 \| 분석 단계와 JD 선행 관계. [0010](../../spec/ai/decisions/0010-sprint1-interface-runtime-decisions.md#jd-신호와-추천-단계)의 외부 7단계와 첫 repo_select의 JD 신호 미사용 유지. JD 기반 추천은 match_score·후속 후보 페이지에서 처리. [0006](../../spec/ai/decisions/0006-task-llm-usage-policy.md)의 Wanted 규칙 변환·LLM 비호출을 단계 삭제·재정렬로 해석하지 않고 입력 가용 시점·유효 L1 저장·추천 응답 연결을 검사 \| AI [task-04](task-04-repo-shallow.md)·[06](task-06-context-preparation.md)·[13](task-13-backend-integration.md), BE 분석 pipeline·추천 \| `<br>` L96: \| AI-L08 \| 제한 근거 조회. [0003의 세 조건](../../spec/ai/decisions/0003-evidence-lookup-policy.md#추가-조회-조건), [0008의 후보 우선순위](../../spec/ai/decisions/0008-ai-candidate-policy.md#evidence-후보-우선순위), [0015의 부분 오류 처리](../../spec/ai/decisions/0015-existing-contracts-and-tool-results.md#toolresult와-일부-조회-오류)를 유지. repo·고정 SHA·허용 path·권한·출처를 재검증하고 열거 방식·주변 범위·깊이/개수·byte/token/time 상한은 [운영 상한 기준](#ai-runtime-limits)으로 구현·검증. 미설정 실제 I/O나 임의 재귀 탐색·전체 tree·global search로 확장하지 않으며 [0002의 vector 미도입](../../spec/ai/decisions/0002-sprint1-vector-search.md) 유지 \| AI [task-05](task-05-repo-deep.md)·[08](task-08-evidence-tools.md)·[13](task-13-backend-integration.md), BE Tool adapter·GitHub I/O \| `<br>` L102: \| AI-L14 \| 면접 식별자·준비·텍스트 WS·재접속 복구. [0010](../../spec/ai/decisions/0010-sprint1-interface-runtime-decisions.md#websocket과-준비-흐름)의 REST interviewId/WS sessionId 구분, answer·answerReceived·question 의미, 준비 단계·REST 재시도·기존 snapshot 복구를 유지. 인증만 후속 [공통 0003의 devon_session](../../spec/shared/decisions/0003-sprint1-session-auth.md)을 적용하고 권한·DB 복구·저장 질문 재전달·실제 송수신을 검사. 새 wire·토큰·상태를 임의 추가하지 않음 \| AI [task-06](task-06-context-preparation.md)·[13](task-13-backend-integration.md), BE [task-13](../../backend/docs/task-13-interview-rest.md)·[15](../../backend/docs/task-15-interview-ws.md), FE 면접 \| `<br>` L104: \| AI-L16 \| Lazy report 생성·실패 처리. [0010](../../spec/ai/decisions/0010-sprint1-interface-runtime-decisions.md#lazy-report와-profile-summary)의 completed·답변 완료 1개 이상 조건과 기존 결과 200·생성/생성 중 202·생성 불가/이전 실패 409 유지. 성공본 재사용·중복 enqueue 방지·실패 이력의 실제 저장/응답을 검사. Sprint 1에 자동 재생성·수동 재시도·이의제기 기반 재평가를 추가하지 않음 \| AI [task-11](task-11-report.md)·[13](task-13-backend-integration.md), BE [task-16](../../backend/docs/task-16-report.md), FE 리포트 조회 \| `<br>` L105: \| AI-L17 \| 프로필 집계·개인 역할 요약. [0015](../../spec/ai/decisions/0015-existing-contracts-and-tool-results.md)의 profile_summary(user_id)·기존 저장/공개 필드와 [0016의 완료 면접 사용 repo 중복 제거·저장소별 동일 비중 언어 평균](../../spec/ai/decisions/0016-profile-language-aggregation.md#집계-기준) 유지. 역할 요약은 0006·0016의 보류를 철회한 [0019의 기존 LLM 요약](../../spec/ai/decisions/0019-sprint1-profile-role-summary-restoration.md)을 적용. 통계는 LLM에 맡기지 않고 자료 누락·근거 없는 개인 기여를 성공으로 꾸미지 않음. report 성공 후 갱신·응답 비차단·실패 독립과 기존 저장/화면 연결을 검증 \| AI [task-11](task-11-report.md)·[13](task-13-backend-integration.md), BE [task-16](../../backend/docs/task-16-report.md), FE 프로필·Home \| `<br>` L109: <a id="ai-runtime-limits"></a> `<br>` L111: ### 운영 상한의 설정과 검증 `<br>` L113: AI-L04·08의 실제 상한 설정·실측은 [0018의 운영 범위와 남은 구현·검증](../../spec/ai/decisions/0018-existing-baseline-bulk-resolution.md#운영-범위와-남은-구현검증)을 따른다. 내부 대표 입력·계정 한도에 맞춰 유한한 실행 설정·비용 범위를 먼저 정하고 측정으로 조정하며, 사용자가 지정한 한도가 있으면 우선한다. 미설정을 무제한 조회로 바꾸거나 설정·검증 전에 실제 I/O를 연결하지 않는다. `<br>` L115: AI는 요청 판단·후보 선택·결과 해석 정책을, BE는 adapter·설정·권한 검사·실제 I/O와 상한 소진 시 차단을 소유한다. [AI task-03](task-03-llm-boundary.md)·[08](task-08-evidence-tools.md)·[13](task-13-backend-integration.md)에서 정책 fixture·상한 측정·실제 연결 검증을 구분한다. AI-L18의 저장 위치·마스킹·접근·보관·재사용 연결도 구현 작업이다. 사용 범위·운영 조건·자료 정책의 채택 내용은 0018을 따르며 숫자·필드·도구 선택을 하나씩 묻지 않는다. 이 표로 구현·검수·출시를 완료 처리하지 않는다. ` | [0018](decisions/0018-existing-baseline-bulk-resolution.md)·[0020](decisions/0020-implementation-record-policy.md) | 기존 13행 보존, 후속 결정의 채택 범위·책임만 연결. 새 수치·wire·기능 완료를 추가하지 않음. |
+| [ai/docs/task-02-contracts.md](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/58966c46d8861c55493d9368ba0de2b471aa2c0a/ai/docs/task-02-contracts.md#L73) | ` L73: ## 결정 대기와 재개 조건 ` | ` L14: [PR #50 계약 검증 재검토](../../spec/ai/implementation.md#2026-09-27--pr-50-계약-검증-재검토-반영)와 `<br>` L15: [PR #56 기반 범위](../../spec/ai/implementation.md#pr-56의-현재-범위)는 당시의 순수 검증·저장 값 변환 범위 기록이다. `<br>` L16: 현재 DB·공개 API 전체의 완료 여부는 이 부분 기록만으로 판단하지 않는다. `<br>` L77: <a id="결정-대기와-재개-조건"></a> `<br>` L79: ## 구현·검증 조건과 검토 범위 ` | [0018](decisions/0018-existing-baseline-bulk-resolution.md)·[0020](decisions/0020-implementation-record-policy.md) | 기존 채택/미채택 상세·운영/연결 검수 조건 유지. 과거 부분 기록을 현재 전체 완료로 보지 않음. |
+| [ai/docs/task-03-llm-boundary.md](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/58966c46d8861c55493d9368ba0de2b471aa2c0a/ai/docs/task-03-llm-boundary.md#L86) | ` L86: ## 결정 대기와 재개 조건 ` | ` L14: 공통 호출·설정·prompt loader/seed의 당시 범위는 [PR #56 기반 기록](../../spec/ai/implementation.md#pr-56의-현재-범위)에서 확인한다. `<br>` L15: 이 부분 기록을 실제 모델 품질·운영 검수 완료로 확대하지 않으며, 이후 연결·실행 결과는 위 구현 기록에서 확인한다. `<br>` L89: <a id="결정-대기와-재개-조건"></a> `<br>` L91: ## 구현·검증 조건과 검토 범위 ` | [0018](decisions/0018-existing-baseline-bulk-resolution.md)·[0020](decisions/0020-implementation-record-policy.md) | 기존 채택/미채택 상세·운영/연결 검수 조건 유지. 과거 부분 기록을 현재 전체 완료로 보지 않음. |
+| [ai/docs/task-06-context-preparation.md](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/58966c46d8861c55493d9368ba0de2b471aa2c0a/ai/docs/task-06-context-preparation.md#L82) | ` L82: ## 결정 대기와 재개 조건 ` | ` L5: [PR #156 후속 기록](../../spec/ai/implementation.md#pr156-review-followup-20261031)은 cron·답변 Context 경계의 당시 검증이다. `<br>` L6: 준비 전체의 현재 완료 여부는 이 부분 기록만으로 판단하지 않는다. `<br>` L85: <a id="결정-대기와-재개-조건"></a> `<br>` L87: ## 구현·검증 조건과 검토 범위 ` | [0018](decisions/0018-existing-baseline-bulk-resolution.md)·[0020](decisions/0020-implementation-record-policy.md) | 기존 채택/미채택 상세·운영/연결 검수 조건 유지. 과거 부분 기록을 현재 전체 완료로 보지 않음. |
+| [ai/docs/task-08-evidence-tools.md](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/58966c46d8861c55493d9368ba0de2b471aa2c0a/ai/docs/task-08-evidence-tools.md#L90) | ` L90: ## 결정 대기와 재개 조건 ` | ` L5: 조회 한계 전달의 일부 검증은 [#124 후속 기록](../../spec/ai/implementation.md#2026-10-28--124-후속-검토의-미실행-조회-범위-보존)에서 확인한다. `<br>` L6: 해당 절은 당시 생략 범위·결과 전달 경계의 기록이며, 전체 Tool·운영 GitHub 호출의 현재 완료를 뜻하지 않는다. `<br>` L93: <a id="결정-대기와-재개-조건"></a> `<br>` L95: ## 구현·검증 조건과 검토 범위 ` | [0018](decisions/0018-existing-baseline-bulk-resolution.md)·[0020](decisions/0020-implementation-record-policy.md) | 기존 채택/미채택 상세·운영/연결 검수 조건 유지. 과거 부분 기록을 현재 전체 완료로 보지 않음. |
+| [ai/docs/task-09-answer-analysis.md](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/58966c46d8861c55493d9368ba0de2b471aa2c0a/ai/docs/task-09-answer-analysis.md#L83) | ` L83: ## 결정 대기와 재개 조건 ` | ` L5: 단발 분석의 입력·검증·mock 대조 범위는 [task-09 구현 당시 기록](../../spec/ai/implementation.md#2026-10-06--task-09-답변-분석-task-구현)에서 확인한다. `<br>` L6: 이후 service·저장·후속 보완의 연결·실행 여부는 위 구현 기록의 관련 후속 절과 구분해 확인한다. `<br>` L86: <a id="결정-대기와-재개-조건"></a> `<br>` L88: ## 구현·검증 조건과 검토 범위 ` | [0018](decisions/0018-existing-baseline-bulk-resolution.md)·[0020](decisions/0020-implementation-record-policy.md) | 기존 채택/미채택 상세·운영/연결 검수 조건 유지. 과거 부분 기록을 현재 전체 완료로 보지 않음. |
+| [ai/docs/task-10-director.md](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/58966c46d8861c55493d9368ba0de2b471aa2c0a/ai/docs/task-10-director.md#L7) | ` L7: 기본 질문 생성과 후속 Director 실행·BE 연결의 실제 구현·검증 범위는 `<br>` L8: [AI 구현·검증 기록](../../spec/ai/implementation.md)에서 확인한다. `<br>` L121: ## 결정 대기와 재개 조건 `<br>` L125: \| 항목 \| 지금 가능한 작업 \| production 연결 재개 조건 \| ` | ` L7: 기본 질문 생성의 후보 복구 분류는 [task-10 분류 경계 기록](../../spec/ai/implementation.md#2026-10-06--task-10-director-후보-복구-분류-경계), `<br>` L8: 후속 실행·BE 연결의 일부 검증은 [Director 연결 기록](../../spec/ai/implementation.md#director-review-integration-20261030)과 `<br>` L9: [PR #156 후속 기록](../../spec/ai/implementation.md#pr156-review-followup-20261031)에서 확인한다. `<br>` L10: 각 절은 해당 시점·범위의 기록이며 현재 전체 구현·검증 현황은 [AI 구현·검증 기록](../../spec/ai/implementation.md)에서 확인한다. `<br>` L123: <a id="결정-대기와-재개-조건"></a> `<br>` L125: ## 구현·검증 조건과 검토 범위 `<br>` L129: \| 항목 \| 지금 가능한 작업 \| production 연결·검증 조건 \| ` | [0018](decisions/0018-existing-baseline-bulk-resolution.md)·[0020](decisions/0020-implementation-record-policy.md) | 기존 채택/미채택 상세·운영/연결 검수 조건 유지. 과거 부분 기록을 현재 전체 완료로 보지 않음. |
+| [ai/docs/task-12-evaluation.md](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/58966c46d8861c55493d9368ba0de2b471aa2c0a/ai/docs/task-12-evaluation.md#L73) | `` L73: - [ ] 통과·실패·보류·미실행·범위 밖 상태를 모두 기록한다. `pending`과 무효 사례는 ``<br>` L118: ## 결정 대기와 재개 조건 `<br>` L122: \| 항목 \| 지금 가능한 작업 \| 실제 평가 재개 조건 \| ` | ` L5: 로컬 loader·grader의 확인 범위는 [평가 로컬 도구 현황](../../spec/ai/implementation.md#eval-local-tools-status-20261103)에서 별도로 확인한다. `<br>` L75: - [ ] 실행 결과와 미실행·범위 밖 사유를 [결과 상태](testing.md#결과-상태)에 따라 모두 기록하고, `<br>`` L76:   판단을 유보했다면 대상·이유를 남긴다. 사례 검수 상태 `pending`과 무효 사례는 ``<br>` L121: <a id="결정-대기와-재개-조건"></a> `<br>` L123: ## 구현·검증 조건과 검토 범위 `<br>` L127: \| 항목 \| 지금 가능한 작업 \| 실제 평가 진행 조건 \| ` | [0007](decisions/0007-evaluation-design-policy.md)·[0009](decisions/0009-ai-evaluation-method.md)·[검증 구분](verification.md#검증-단계를-구분한다) | pending 검수 상태·전체 수·품질 분모와 실제 모델 미검증을 유지. |
+| [ai/docs/testing.md](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/58966c46d8861c55493d9368ba0de2b471aa2c0a/ai/docs/testing.md#L7) | `` L7: 모든 검사는 `통과`, `실패`, `보류`, `미실행`, `범위 밖`으로 구분한다. 빈 테스트 수집, import 성공, README 명령 예시, 정적 형식 검사만으로 AI 기능·모델 품질·서비스 흐름이 통과했다고 기록하지 않는다. ``<br>`` L147: 각 task의 완료 체크에는 해당 테스트의 생성 여부, 수집 개수, 명령·결과, 합의한 계약 범위와 남은 AI-L ID를 함께 남긴다. `task-13`의 저장·WS·worker 통합 검사나 실제 모델 품질 검사가 보류라면 패키지 단위 검사가 통과해도 서비스 전체 완료를 선언하지 않는다. `` | ` L7: 검사 결과는 [검증 기준](../../spec/ai/verification.md#검증-단계를-구분한다)에 따라 실행 여부와 판단 가능 여부를 구분해 기록한다. `<br>`` L8: 실행한 검사는 `통과`·`실패`를, 실행하지 않은 검사는 `미실행` 사유 또는 `범위 밖` 조건을 남긴다. ``<br>`` L9: 여기서 `보류`는 자료·근거 부족으로 판단을 유보했다는 뜻이며 해당 판단의 범위와 이유를 적는다. ``<br>`` L10: `보류`를 미실행·미구현이나 추가 결정 필요의 대체 표현으로 쓰지 않는다. ``<br>`` L11: 사례 검수 상태 `pending`은 검수자 불일치를 뜻하며 실행 결과와 별도로 기록한다. ``<br>` L12: 빈 테스트 수집, import 성공, README 명령 예시, 정적 형식 검사만으로 AI 기능·모델 품질·서비스 흐름이 통과했다고 기록하지 않는다. `<br>` L152: 각 task의 완료 체크에는 해당 테스트의 생성 여부, 수집 개수, 명령·결과, 합의한 계약 범위와 남은 AI-L ID를 함께 남긴다. `<br>`` L153: `task-13`의 저장·WS·worker 통합 검사나 실제 모델 품질 검사가 미실행이거나 판단 근거 부족으로 유보된 경우에는 ``<br>` L154: 패키지 단위 검사 통과만으로 서비스 전체 완료를 선언하지 않는다. ` | [0007](decisions/0007-evaluation-design-policy.md)·[0009](decisions/0009-ai-evaluation-method.md)·[검증 구분](verification.md#검증-단계를-구분한다) | pending 검수 상태·전체 수·품질 분모와 실제 모델 미검증을 유지. |
+
+### 기존 #179의 민감한 표현 전환 추적
+
+전체 변경은 [고정 SHA 비교](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/compare/460f5fef515ef4ab4bd17bb29b60aab34732dbb0...af53445ccb373ed226eefffe1876b19aaeaaa491)로 확인한다. 두 SHA의 파일과 실제 ADR/계약 근거를 연결했으며, 로컬 scratch를 승인 근거로 삼지 않는다. 표의 발췌와 전체 문맥은 연결한 원문·수정문을 함께 읽는다.
+
+| 대상·원문 위치 | 이전 표현 | #179에서 정리한 표현 | 기존 근거 | 유지한 의미·제한 |
+| --- | --- | --- | --- | --- |
+| task-04 출력 필드 [전](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/460f5fef515ef4ab4bd17bb29b60aab34732dbb0/ai/docs/task-04-repo-shallow.md#L69)·[후](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/ai/docs/task-04-repo-shallow.md#L69) | `채택되지 않은 출력 필드·저장 매핑·retry budget을 구현하지 않는다.` | `출력 필드·저장 매핑은 채택 범위와 기존 구조에 맞춰 구현·검증하고, 운영 budget을 임의의 확정값이나 무제한으로 대체하지 않는다.` | [0018 AI-L02·03·04](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/spec/ai/decisions/0018-existing-baseline-bulk-resolution.md#L22) | 채택한 기존 계약 안의 상세 구현과 계약 밖 새 필드·정책을 구분한다. 새 구조 도입이나 미설정 무제한 실행은 허용하지 않는다. |
+| task-08 실제 조회 연결 [전](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/460f5fef515ef4ab4bd17bb29b60aab34732dbb0/ai/docs/task-08-evidence-tools.md#L92)·[후](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/ai/docs/task-08-evidence-tools.md#L94) | `디렉터리 열거·인접 후보 생성, 실제 Tool I/O, 주변 범위·깊이·개수와 byte/token/time 상한이 합의되면 제한 검색을 연결한다.` | `기존 허용 범위에서 디렉터리 열거·인접 후보 생성과 실제 Tool I/O를 구현한다. 주변 범위·깊이·개수와 byte/token/time 상한은 운영 조건·대표 사례 측정으로 설정·검증한 뒤 제한 검색에 연결한다.` | [0018 AI-L04·08·11](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/spec/ai/decisions/0018-existing-baseline-bulk-resolution.md#L23)·[운영 범위](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/spec/ai/decisions/0018-existing-baseline-bulk-resolution.md#L45) | 기존 제한 검색 범위의 설정·측정 조건을 명시한다. 새로운 검색 방식 승인이나 상한 설정 전 실제 I/O 허용으로 바꾸지 않는다. |
+| task-06 준비 판정 [전](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/460f5fef515ef4ab4bd17bb29b60aab34732dbb0/ai/docs/task-06-context-preparation.md#L66)·[후](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/ai/docs/task-06-context-preparation.md#L66) | `AI-L06 결정 전에는 부분 결과의 최종 성공/실패 기대값을 임의로 고정하지 않는다.` | `0010의 채택 기준에 따라 primary repo 1~2개 중 검증된 notable area가 1개 이상인 repo가 있으면 준비 성공을 허용하고, 총 0개면 preparing_failed인지 검사한다.` | [0010 L2 partial success](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/spec/ai/decisions/0010-sprint1-interface-runtime-decisions.md#L59)·[0018 AI-L06](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/spec/ai/decisions/0018-existing-baseline-bulk-resolution.md#L24) | 이미 채택된 기준을 다시 결정 대기로 돌리지 않는다. 실제 지원 언어·무효 path 제외·저장·준비 연결은 별도 구현·검증 대상이다. |
+| task-10 기본 생성 경로 [전](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/460f5fef515ef4ab4bd17bb29b60aab34732dbb0/ai/docs/task-10-director.md#L7)·[후](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/ai/docs/task-10-director.md#L7) | 발췌: `모델이 계약을 다시 출력하거나 바꾸게 하지 않는다.` | 발췌: `기본 generate_question 경로에서는 모델이 입력 QuestionContract를 다시 출력하거나 바꾸게 하지 않는다.` | [현행 Director 계약](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/spec/ai/contracts.md#L72)·[0020](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/spec/ai/decisions/0020-implementation-record-policy.md#L18) | 기본 생성기의 입력 계약 불변을 후속 run_director 전체에 확대하지 않는다. 기본 CandidateRecovery의 세 실패 전달과 실행·재호출 없음은 유지한다. |
+| task-12 구현 상태 안내 [전](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/460f5fef515ef4ab4bd17bb29b60aab34732dbb0/ai/docs/task-12-evaluation.md#L3)·[후](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/ai/docs/task-12-evaluation.md#L3) | `현재 실제 평가자료와 loader·harness·채점기는 미구현이다.` | `평가 도구·자료·실행의 실제 구현·검증 범위는 AI 구현·검증 기록에서 확인한다.` | [0020 문서 역할](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/spec/ai/decisions/0020-implementation-record-policy.md#L18)·[#161](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/pull/161)·[loader](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/ai/evals/eval_cases.py#L121)·[채점기 검사](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/blob/af53445ccb373ed226eefffe1876b19aaeaaa491/ai/evals/grader_check.py#L33) | 도구 코드의 존재·합성 경계 검사와 실제 사례·독립 검수·모델 평가 완료를 구분한다. task에 낡은 현황을 중복 기록하지 않는다. |
+
+위 표는 대표적인 의미 전환 5개를 추적한다. 기존 92개 diff hunk 전체의 문장별 사전 합의를 증명하는 표는 아니다. 과거 변경 전체는 고정 비교 링크로 보존하며 이번 대응표와 혼합하지 않는다.
+
+<a id="eval-local-tools-status-20261103"></a>
+
+### 로컬 합성 평가 도구의 확인 범위
+
+기준 소스는 develop `58966c4`다. [#161](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/pull/161)에서
+추가된 두 도구가 현재 소스에 있음을 확인했다. 도구를 읽어 확인한 범위와 실제 모델·사례 평가 완료는 구분한다.
+
+- [`eval_cases.py`](../../ai/evals/eval_cases.py)는 합성 입력·기대 JSON 쌍을 읽는다. 짝·version·파일 이름
+  불일치, 중복, 입력 쪽의 계약 밖 필드, 비합성 사례, 같은 source group의 dev/holdout 교차와
+  잘못된 검수 메타데이터를 거부한다. `Case.model_input()`은 기대값·검수·제어 정보와 분리된
+  `payload` 복사본만 반환한다.
+- [`grader_check.py`](../../ai/evals/grader_check.py)는 호출자가 주입한 채점기에 허용·금지 기준과
+  control 출력을 전달해 비교한다. control 종류는 채점기에 주지 않으며, 종류별
+  `correct`·`false_accept`·`false_reject`·`abstained`·`error`를 기록한다.
+  미승인 사례는 전체 수에 남기되 품질 분모에서 제외하고, 승인돼도 control 출력이 없으면
+  `no_controls`로 제외한다. 이 모듈 자체가 실제 LLM judge는 아니다.
+- 관련 경계 검사는 [`test_eval_data_boundaries.py`](../../ai/tests/test_eval_data_boundaries.py)와
+  [`test_eval_grader_check.py`](../../ai/tests/test_eval_grader_check.py)에 있다. 임시 합성 JSON과
+  대역 채점기로 입력 분리·검수·집계 경계를 확인하며, 실제 모델 판정 품질 검사가 아니다.
+- 현재 추적된 `ai/evals/inputs/`에는 `.gitkeep`, `expectations/`에는 `.gitkeep`과
+  `fact-table.md`가 있고 JSON 사례는 없다. 실제 사례 작성·독립 검수·모델 실행·품질 수용 기준 충족을
+  완료로 표시하지 않는다. 도구는 `src/devon_ai` 런타임 패키지 밖에 있다.
+- control 종류별 기대 판정과 사례 검수 담당·완료 방식에는 작성자 제안이 남아 있다.
+  `review.status`의 `unreviewed`·`approved`·`pending`·`invalid` 값과
+  [평가 안내](../../ai/evals/README.md)의 검수 경계를 이 보완에서 변경하지 않았다.
+
+### 열린 PR의 참조 영향
+
+[#184](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/pull/184)의 task-08 문구는 유지되며, 기존 61행의 근거 두 용도 항목은 64행, 기존 52행의 디렉터리 제한 항목은 55행으로 이동한다. task-05와 Evidence 계약 앵커는 보존했다. 줄 번호 이동과 문서 링크 파손을 구분하며 기존 PR 본문은 수정하지 않았다.
+
+### 이번 실행·보존 확인
+
+실행 시 작업본의 ai/src와 backend를 PYTHONPATH로 고정하고 기존 격리 Python 환경을 재사용했다. 기준본과 보완본은 따로 실행했으며 수를 합산하지 않는다.
+
+| 검사 | 이번 결과·한계 |
+| --- | --- |
+| AI 전체 pytest | 기준본 428 passed, 보완본 428 passed |
+| 로컬 평가 도구 경계 | 두 테스트 파일 43개 통과. 위 전체 검사에 포함되며 합성 JSON·대역 grader 검사임 |
+| AI Ruff·format·mypy | 통과. format 65파일, mypy 16소스 |
+| BE AI 패키지 연결 | 1 passed. 서비스·DB·실제 모델 연결 완료를 뜻하지 않음 |
+| 부분 계약 검사 | schema 2개·부분 OpenAPI·fixture 7개 통과. 전체 호환성 검증 아님 |
+| 내부 참조 | Markdown 187개·UTF-8 비Markdown 532개에서 1,547개 검사. 오류·기존 앵커 손실 0개 |
+| 원본 보존 | 기존 구현 기록 1,594줄·날짜별 49구간, ADR·설계·보호 지침·코드·설정·프롬프트·평가 자료 보존 |
+| 실행하지 않은 범위 | 실제 모델·전체 DB/Redis·서비스 E2E·배포. 정적 문서 검사나 대역 검사로 완료를 주장하지 않음 |
+
+외부 URL 응답·동적 경로는 정적 링크 검사 범위 밖이다. 고정 SHA의 원문 링크는 저장소 객체와 줄 위치로 대조한다. 상세 로컬 검사기·로그는 Git 제외 .claude/scratch/issue109-ai-supplement-20261103/에 보존한다.
+
+### 남은 범위
+
+관련 task의 세부 링크는 당시 기록의 부분 범위를 안내하며 현재 전체 기능 완료를 선언하지 않는다. #109의 공유 편집 구조와 BE·FE·shared 문서 정리는 후속으로 남는다. 실제 구현·모델 평가·자료 검수 완료 여부와 문서 보완 완료를 구분한다.
+
+<a id="pr186-review-followup-20261105"></a>
+
+## 2026-11-05 — #186 리뷰 후속: 초기 상한 검사와 실제 측정의 구분
+
+[#186의 인라인 의견](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/pull/186#discussion_r4464374197)을 검토해, 초기 안전장치 검사와 실측 완료를 같은 조건으로 읽지 않도록 안내 문구를 보완했다.
+기준은 `45ecc4a`이며 [0018의 운영 기준](decisions/0018-existing-baseline-bulk-resolution.md#운영-범위와-남은-구현검증)에 따른다. 새로운 운영 정책이나 수치를 채택한 변경이 아니다.
+
+| 수정 위치 | 정리한 의미 |
+| --- | --- |
+| [pipeline의 운영 상한](../../ai/docs/pipeline.md#ai-runtime-limits) | 유한한 초기 설정·비용 범위와 사용자 한도를 먼저 적용하고, 실제 I/O 전에 허용 범위·권한·상한 유효성·소진 시 차단을 확인한다. 그 제한 안에서 대표 사례를 실제 호출해 측정한 뒤 production 실행·조회 상한을 조정·검증한다. |
+| [analysis-scope의 읽기 범위](../../ai/docs/analysis-scope.md#2-분석-수준별-읽기-범위) | 허용된 파일 열거·인접 후보 조회의 제한 실측과 production 상한 검증을 구분한다. 임의 재귀·전체 tree·global search 금지와 검색 범위 확대 금지는 유지한다. |
+| [task-08의 작업](../../ai/docs/task-08-evidence-tools.md#작업)·[구현·검증 조건](../../ai/docs/task-08-evidence-tools.md#구현검증-조건과-검토-범위) | 체크리스트와 AI-L08 안내를 같은 순서로 맞췄다. 리뷰에서 말한 63행은 기준본의 상단 3줄 추가로 66행이며, 같은 문서의 99행도 함께 명료화했다. |
+
+BE의 [설정](../../backend/app/core/config.py)과 [GitHub 조회 연결](../../backend/app/features/interview/repository_sources.py)·[요청 및 바이트 예산 차단](../../backend/app/integrations/github/evidence.py)은 코드로 대조했다. 유한한 기본 상한이 실제 HTTP 조회 경로에 연결돼 있다는 확인이며, 기본값의 운영 적정성을 실측했거나 전체 LLM·Tool·job 검증을 끝냈다는 뜻은 아니다.
+실행 코드·설정·프롬프트·평가 자료·ADR·보호 지침은 변경하지 않았다.
+
+위 [2026-11-03 보완 기록](#issue109-ai-supplement-20261103)의 원문·대응표·당시 검증 결과는 보존했다. 해당 표의 문구는 당시 스냅샷이며, 초기 설정과 실측 순서에 관한 이번 보완은 이 절과 연결한 현행 안내를 따른다.
+
+### 이번 검증과 미실행 범위
+
+- 문서 내부 참조·기존 앵커 보존·명시 id 중복·변경 범위와 `git diff --check`를 확인했다.
+- 기존 구현 기록 전체와 날짜별 기록, pipeline의 AI-L01~19 인계표 및 코드·설정·ADR 등 보존 대상의 해시를 대조했다. 문구의 의미는 별도 독립 검토로 확인했다.
+- AI 전체 pytest·Ruff·format·mypy, BE AI import 및 부분 계약 검사는 이번에 재실행하지 않았다. 변경은 안내 문서 3개와 이 후속 기록뿐이며 과거 428 passed 등을 이번 결과로 사용하지 않는다.
+- 실제 GitHub·LLM 호출, 운영 상한 실측, DB/Redis·서비스 E2E·배포는 이번 범위에서 실행하지 않았다.
+
+#109의 `implementation.md` 공유 편집 구조와 BE·FE·shared 문서 정리는 여전히 후속 범위다. 이번 표현 보완을 실제 서비스 검증이나 #109 전체 완료로 확대하지 않는다.

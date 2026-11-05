@@ -4,8 +4,10 @@
 
 ## 현재 구현
 
-기본 질문 생성과 후속 Director 실행·BE 연결의 실제 구현·검증 범위는
-[AI 구현·검증 기록](../../spec/ai/implementation.md)에서 확인한다.
+기본 질문 생성의 후보 복구 분류는 [task-10 분류 경계 기록](../../spec/ai/implementation.md#2026-10-06--task-10-director-후보-복구-분류-경계),
+후속 실행·BE 연결의 일부 검증은 [Director 연결 기록](../../spec/ai/implementation.md#director-review-integration-20261030)과
+[PR #156 후속 기록](../../spec/ai/implementation.md#pr156-review-followup-20261031)에서 확인한다.
+각 절은 해당 시점·범위의 기록이며 현재 전체 구현·검증 현황은 [AI 구현·검증 기록](../../spec/ai/implementation.md)에서 확인한다.
 [첫 구현 인계](../../spec/ai/designs/2026-09-23-director-question-path.md)와
 [프롬프트 초안](../prompts/director-question-v1.md)은 당시 설계 기준선이며, 현행 입력·출력과
 실패 경계는 [내부 계약](../../spec/ai/contracts.md)을 따른다. 기본 `generate_question` 경로에서는
@@ -118,11 +120,13 @@ Mock과 policy fixture 통과는 실제 provider 품질, DB 저장, WS 전달이
 - [ ] 내부 결정 객체를 공개 WS payload로 직접 직렬화하지 않는다.
 - [ ] 미채택 상세 계약을 임의 값으로 채우지 않고, 운영 상한 설정·측정과 기존 복구 정책의 검증 여부를 구분해 기록한다.
 
-## 결정 대기와 재개 조건
+<a id="결정-대기와-재개-조건"></a>
+
+## 구현·검증 조건과 검토 범위
 
 채택된 9턴·Persona·ToolResult·복구 방향을 새 결정 대기로 돌리지 않는다. [문서 상태 안내](../README.md#ai-document-status)에 따라 미채택 상세와 실제 연결·검수 조건만 구분한다.
 
-| 항목 | 지금 가능한 작업 | production 연결 재개 조건 |
+| 항목 | 지금 가능한 작업 | production 연결·검증 조건 |
 | --- | --- | --- |
 | AI-L02 내부 계약 | 기존 여섯 판단 필드와 ask/retrieve/finish, reason_summary의 실제 조회 요약 검토 | 채택된 ToolResult 다섯 필드·네 상태·부분 오류 유지, 미채택 상세 객체·행동별 null·Tool 인수·공개 변환 구체화; 영구 실패 기록 위치는 AI-L18, 복구는 AI-L12와 함께 검토 |
 | AI-L04 실행 상한 | ADR 0008 실패 분류·복구 선택 fixture | 공통 LLM 호출 총 2회·semantic 재호출 금지 유지, Tool·재작성·재계획 budget과 소진 처리의 구현·측정 |
