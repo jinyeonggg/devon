@@ -1681,3 +1681,30 @@ AI 정리는 #109 전체의 BE·FE·shared 문서 구조 결정을 완료한 것
 ### 남은 범위
 
 관련 task의 세부 링크는 당시 기록의 부분 범위를 안내하며 현재 전체 기능 완료를 선언하지 않는다. #109의 공유 편집 구조와 BE·FE·shared 문서 정리는 후속으로 남는다. 실제 구현·모델 평가·자료 검수 완료 여부와 문서 보완 완료를 구분한다.
+
+<a id="pr186-review-followup-20261105"></a>
+
+## 2026-11-05 — #186 리뷰 후속: 초기 상한 검사와 실제 측정의 구분
+
+[#186의 인라인 의견](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/pull/186#discussion_r4464374197)을 검토해, 초기 안전장치 검사와 실측 완료를 같은 조건으로 읽지 않도록 안내 문구를 보완했다.
+기준은 `45ecc4a`이며 [0018의 운영 기준](decisions/0018-existing-baseline-bulk-resolution.md#운영-범위와-남은-구현검증)에 따른다. 새로운 운영 정책이나 수치를 채택한 변경이 아니다.
+
+| 수정 위치 | 정리한 의미 |
+| --- | --- |
+| [pipeline의 운영 상한](../../ai/docs/pipeline.md#ai-runtime-limits) | 유한한 초기 설정·비용 범위와 사용자 한도를 먼저 적용하고, 실제 I/O 전에 허용 범위·권한·상한 유효성·소진 시 차단을 확인한다. 그 제한 안에서 대표 사례를 실제 호출해 측정한 뒤 production 실행·조회 상한을 조정·검증한다. |
+| [analysis-scope의 읽기 범위](../../ai/docs/analysis-scope.md#2-분석-수준별-읽기-범위) | 허용된 파일 열거·인접 후보 조회의 제한 실측과 production 상한 검증을 구분한다. 임의 재귀·전체 tree·global search 금지와 검색 범위 확대 금지는 유지한다. |
+| [task-08의 작업](../../ai/docs/task-08-evidence-tools.md#작업)·[구현·검증 조건](../../ai/docs/task-08-evidence-tools.md#구현검증-조건과-검토-범위) | 체크리스트와 AI-L08 안내를 같은 순서로 맞췄다. 리뷰에서 말한 63행은 기준본의 상단 3줄 추가로 66행이며, 같은 문서의 99행도 함께 명료화했다. |
+
+BE의 [설정](../../backend/app/core/config.py)과 [GitHub 조회 연결](../../backend/app/features/interview/repository_sources.py)·[요청 및 바이트 예산 차단](../../backend/app/integrations/github/evidence.py)은 코드로 대조했다. 유한한 기본 상한이 실제 HTTP 조회 경로에 연결돼 있다는 확인이며, 기본값의 운영 적정성을 실측했거나 전체 LLM·Tool·job 검증을 끝냈다는 뜻은 아니다.
+실행 코드·설정·프롬프트·평가 자료·ADR·보호 지침은 변경하지 않았다.
+
+위 [2026-11-03 보완 기록](#issue109-ai-supplement-20261103)의 원문·대응표·당시 검증 결과는 보존했다. 해당 표의 문구는 당시 스냅샷이며, 초기 설정과 실측 순서에 관한 이번 보완은 이 절과 연결한 현행 안내를 따른다.
+
+### 이번 검증과 미실행 범위
+
+- 문서 내부 참조·기존 앵커 보존·명시 id 중복·변경 범위와 `git diff --check`를 확인했다.
+- 기존 구현 기록 전체와 날짜별 기록, pipeline의 AI-L01~19 인계표 및 코드·설정·ADR 등 보존 대상의 해시를 대조했다. 문구의 의미는 별도 독립 검토로 확인했다.
+- AI 전체 pytest·Ruff·format·mypy, BE AI import 및 부분 계약 검사는 이번에 재실행하지 않았다. 변경은 안내 문서 3개와 이 후속 기록뿐이며 과거 428 passed 등을 이번 결과로 사용하지 않는다.
+- 실제 GitHub·LLM 호출, 운영 상한 실측, DB/Redis·서비스 E2E·배포는 이번 범위에서 실행하지 않았다.
+
+#109의 `implementation.md` 공유 편집 구조와 BE·FE·shared 문서 정리는 여전히 후속 범위다. 이번 표현 보완을 실제 서비스 검증이나 #109 전체 완료로 확대하지 않는다.
