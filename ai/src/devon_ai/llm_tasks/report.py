@@ -5,9 +5,13 @@
 분리, unresolved 불일치를 거짓말로 쓰지 않는 것 같은 의미 품질은 검증기가 아니라 평가 사례로 본다.
 """
 
+from collections.abc import Callable, Mapping
 from dataclasses import asdict
+from typing import cast
 
 from devon_ai import contracts as c
+from devon_ai.llm_tasks import report_score
+from devon_ai.report_scores import compute_scores
 
 type NarrativeChecked = c.ContractChecked[c.ReportNarrative]
 
@@ -123,3 +127,193 @@ async def write_narrative(
         failure = c.CallFailure(exc.stage, "report_invalid", "Narrative candidate rejected.")
         return c.ModelResult(None, failure, result.attempts)
     return result
+
+
+# --- BE 진입점 -------------------------------------------------------------------------------
+# BE(#153)의 ReportGenerator Protocol이 부르는 단일 함수다. 점수 판정 → 점수 계산 → 서술 순으로
+# 두 task를 안에서 호출하고 BE validate_draft가 받는 모양으로 돌려준다. 실패는 ContractError다.
+
+_SECTIONS = (
+    ("strengths", "강점"),
+    ("gaps", "부족한 점"),
+    ("follow_ups", "확인할 점"),
+    ("practice_actions", "연습할 점"),
+)
+
+
+def _mapping(raw: object, name: str) -> Mapping[str, object]:
+    if not isinstance(raw, Mapping):
+        raise c.ContractError("schema", name)
+    return cast(Mapping[str, object], raw)
+
+
+def _items(raw: object, name: str) -> list[object]:
+    if not isinstance(raw, list | tuple):
+        raise c.ContractError("schema", name)
+    return list(raw)
+
+
+def _level(raw: object) -> int:
+    if type(raw) is not str or not raw.isdigit():
+        raise c.ContractError("schema", "rubric level")
+    return int(raw)
+
+
+def _evidence(raw: object) -> c.Evidence:
+    """BE 필드명(id·source_type·snippet)을 계약 필드로 옮긴다. 없는 필드는 보정하지 않는다."""
+    item = _mapping(raw, "evidence")
+    return c.decode(
+        c.Evidence,
+        {
+            "evidence_id": item.get("id"),
+            "repository_id": item.get("repository_id"),
+            "git_ref": item.get("git_ref"),
+            "source_kind": item.get("source_type"),
+            "path": item.get("path"),
+            "metadata_key": item.get("metadata_key"),
+            "content": item.get("snippet"),
+            "tool_name": item.get("tool_name"),
+            "summary": item.get("summary"),
+            "start_line": item.get("start_line"),
+            "end_line": item.get("end_line"),
+        },
+    )
+
+
+def _build_inputs(
+    payload: Mapping[str, object],
+) -> tuple[tuple[c.ScoreTurn, ...], tuple[c.RubricLevel, ...], c.ReportInput]:
+    """BE payload를 두 task의 입력 계약으로 옮긴다. turn_id는 str(turn_no)다."""
+    rubric = tuple(
+        c.decode(c.RubricLevel, {"key": key, "level": _level(level), "text": text})
+        for key, levels in _mapping(payload.get("rubrics"), "rubrics").items()
+        for level, text in _mapping(levels, "rubric").items()
+    )
+    score_turns: list[c.ScoreTurn] = []
+    report_turns: list[c.ReportTurn] = []
+    evidence: dict[str, c.Evidence] = {}
+    for raw_turn in _items(payload.get("turns"), "turns"):
+        turn = _mapping(raw_turn, "turn")
+        if type(turn.get("turn_no")) is not int:
+            raise c.ContractError("schema", "turn_no")
+        turn_id = str(turn["turn_no"])
+        refs: list[str] = []
+        for raw_item in _items(turn.get("evidences", []), "evidences"):
+            item = _evidence(raw_item)
+            evidence.setdefault(cast(str, item.evidence_id), item)
+            if item.evidence_id not in refs:  # 같은 근거가 질문 근거이자 평가 근거일 수 있다.
+                refs.append(cast(str, item.evidence_id))
+        score_turn = c.decode(
+            c.ScoreTurn,
+            {
+                "turn_id": turn_id,
+                "persona": turn.get("persona"),
+                "question": turn.get("question"),
+                "answer": turn.get("answer"),
+                "question_contract": turn.get("question_contract"),
+            },
+        )
+        parent, analysis = turn.get("parent_turn_no"), turn.get("analysis")
+        score_turns.append(score_turn)
+        report_turns.append(
+            c.ReportTurn(
+                turn_id=turn_id,
+                persona=score_turn.persona,
+                question=score_turn.question,
+                answer=score_turn.answer,
+                follows=None if parent is None else str(parent),
+                analysis=None if analysis is None else c.decode(c.AnswerAnalysis, analysis),
+                evidence_refs=tuple(refs),
+            )
+        )
+    # 근거 조회 결과(ToolResult)는 BE가 저장하지 않아 비워 둔다.
+    report_input = c.ReportInput(tuple(report_turns), tuple(evidence.values()), ())
+    return tuple(score_turns), rubric, report_input
+
+
+def _claims(items: tuple[c.NarrativeClaim, ...]) -> list[str]:
+    return [item.text for item in items]
+
+
+def _summary(narrative: c.ReportNarrative) -> str:
+    parts = [
+        f"{label}\n" + "\n".join(f"- {text}" for text in _claims(getattr(narrative.summary, name)))
+        for name, label in _SECTIONS
+        if getattr(narrative.summary, name)
+    ]
+    limits = [text for item in narrative.persona_feedbacks for text in item.limitations]
+    if limits:  # 서술을 못 한 이유만 있는 결과도 빈 summary가 되지 않게 한다.
+        parts.append("관찰 한계\n" + "\n".join(f"- {text}" for text in limits))
+    return "\n\n".join(parts)
+
+
+def _unwrap[T](result: c.ModelResult[c.ContractChecked[T]]) -> c.ContractChecked[T]:
+    if result.data is None or result.failure is not None:
+        failure = result.failure
+        stage = failure.stage if failure else "semantic"
+        field = failure.error_code if failure else "model_failed"
+        raise c.ContractError(stage if stage in ("parse", "schema") else "semantic", field)
+    return result.data
+
+
+async def generate_report(
+    payload: Mapping[str, object],
+    *,
+    prompts: Mapping[str, c.PromptSpec],
+    limits: c.CallLimits,
+    model_call_factory: Callable[[], c.ModelCall[object]],
+) -> dict[str, object]:
+    """리포트 초안을 만든다. 점수는 모델이 아니라 report_scores가 계산한다(total_score는 없다).
+
+    model_call_factory()는 task마다 한 번씩 부른다(task별 CallBudget). 입력이 틀리면 모델을
+    부르지 않고, 어느 단계든 실패하면 ContractError로 끝낸다. 보정·기본값으로 채우지 않는다.
+    """
+    score_turns, rubric, report_input = _build_inputs(payload)
+    score_prompt, report_prompt = prompts.get("report_score"), prompts.get("report")
+    if score_prompt is None or report_prompt is None:
+        raise c.ContractError("schema", "prompts")
+    judged = _unwrap(
+        await report_score.judge_scores(
+            score_turns,
+            rubric=rubric,
+            prompt=score_prompt,
+            limits=limits,
+            model_call=cast(c.ModelCall[report_score.ScoreChecked], model_call_factory()),
+        )
+    )
+    scores = compute_scores(judged)
+    narrative = _unwrap(
+        await write_narrative(
+            report_input,
+            prompt=report_prompt,
+            limits=limits,
+            model_call=cast(c.ModelCall[NarrativeChecked], model_call_factory()),
+        )
+    ).data
+    return {
+        "headline": narrative.headline,
+        "summary": _summary(narrative),
+        "scores": {
+            key: {
+                "score": score,
+                "reason": None,
+                "evidence_turn_nos": sorted(
+                    int(j.turn_id)
+                    for j in judged.data.judgments
+                    if j.key == key and j.level != "not_applicable"
+                ),
+            }
+            for key, score in scores.key_scores
+        },
+        "feedbacks": [
+            {
+                "persona": item.persona,
+                "tags": list(item.tags),
+                "strengths": _claims(item.strengths),
+                "improvements": _claims(item.improvements),
+            }
+            for name in c.NARRATIVE_PERSONAS
+            for item in narrative.persona_feedbacks
+            if item.persona == name
+        ],
+    }
