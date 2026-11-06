@@ -14,7 +14,7 @@ import {
   postingUrlFrom,
   type AnalysisInputState,
 } from '@/features/analysis/steps';
-import type { StepKey, StepStatus } from '@/types/api';
+import { isApiError, type StepKey, type StepStatus } from '@/types/api';
 
 type FailureAction = 'relink' | 'input' | 'none';
 
@@ -71,6 +71,9 @@ const DEFAULT_FAILURE = {
   label: '다시 시도',
 };
 
+const PARTIAL_MESSAGE =
+  '일부 레포를 분석하지 못했어요. 분석에 성공한 저장소로 면접을 진행할 수 있어요.';
+
 export default function AnalysisFailed() {
   const { runId = '' } = useParams<{ runId: string }>();
   const navigate = useNavigate();
@@ -90,7 +93,8 @@ export default function AnalysisFailed() {
   // 실패 사유는 200 응답 안의 값이라 전역 오류 처리가 보지 못한다.
   // refreshMeIfTokenInvalid는 HTTP reason(github_token_invalid) 기준이라 job 코드 token_invalid를 변환해 넘긴다.
   useEffect(
-    () => refreshMeIfTokenInvalid(failureReason === 'token_invalid' ? 'github_token_invalid' : null),
+    () =>
+      refreshMeIfTokenInvalid(failureReason === 'token_invalid' ? 'github_token_invalid' : null),
     [failureReason],
   );
   // 실패하지 않은 run으로 직접 들어오면(링크·기록 이동) 맞는 화면으로 보낸다.
@@ -109,6 +113,23 @@ export default function AnalysisFailed() {
   const stepStatus: Partial<Record<StepKey, StepStatus>> = Object.fromEntries(
     (run?.steps ?? []).map((s) => [s.key, s.status]),
   );
+  // DB partial run은 API에서 failed로 보이지만 성공한 저장소의 결과는 조회된다(analysis-run.md 부분 실패).
+  // 상태값만으로는 구분할 수 없어 결과 조회로 판단한다. 진짜 실패한 run은 409 not_ready라 버튼을 숨긴다.
+  const resultQuery = useQuery({
+    queryKey: queryKeys.analysisResult(runId),
+    queryFn: () => api.getAnalysisRunResult(runId),
+    enabled: failed,
+    retry: false,
+  });
+  const hasSucceededRepos = !!resultQuery.data?.repositories.some((r) => r.status === 'succeeded');
+  // 409 not_ready는 결과가 없는 실패 run이다. 그 밖의 조회 오류(5xx·네트워크)는 부분 실패 여부를 모르는
+  // 상태라 버튼을 숨긴 채 끝내지 않고 다시 불러오게 한다.
+  const resultLoadFailed =
+    resultQuery.isError &&
+    !(isApiError(resultQuery.error) && resultQuery.error.error.reason === 'not_ready');
+  // 결과 조회 전에 그리면 기본 안내가 보였다가 부분 실패 안내로 바뀌므로 조회가 끝난 뒤 안내와 버튼을 그린다.
+  const ready = failed && !resultQuery.isPending;
+  const message = hasSucceededRepos ? PARTIAL_MESSAGE : failure.message;
 
   return (
     <div className="flex min-h-screen flex-col bg-surface text-ink">
@@ -125,7 +146,7 @@ export default function AnalysisFailed() {
             <h1 className="flex-1 text-base font-bold">GitHub 레포를 분석하지 못했어요</h1>
           </div>
 
-          {!failed && !runQuery.isError && (
+          {!ready && !runQuery.isError && (
             <p role="status" className="text-sm text-muted">
               불러오는 중...
             </p>
@@ -138,12 +159,24 @@ export default function AnalysisFailed() {
             />
           )}
 
-          {failed && (
+          {ready && (
             <div
               role="alert"
               className="rounded-card border border-error-soft bg-error-soft px-4 py-3 text-sm text-error"
             >
-              {failure.message}
+              {message}
+            </div>
+          )}
+          {ready && resultLoadFailed && (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-error">분석 결과를 불러오지 못했어요.</p>
+              <button
+                type="button"
+                onClick={() => void resultQuery.refetch()}
+                className="self-start rounded-md border border-line px-4 py-2 text-sm"
+              >
+                결과 다시 불러오기
+              </button>
             </div>
           )}
 
@@ -185,8 +218,17 @@ export default function AnalysisFailed() {
             </ul>
           )}
 
-          {failed && (
+          {ready && (
             <div className="flex gap-2">
+              {hasSucceededRepos && (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/interview/repos/${runId}`, { state: inputState })}
+                  className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-white"
+                >
+                  분석에 성공한 저장소 보기
+                </button>
+              )}
               {failure.action === 'relink' && (
                 <a
                   href={`${BASE}/auth/github/link`}
@@ -203,7 +245,12 @@ export default function AnalysisFailed() {
                       state: { postingUrl } satisfies AnalysisInputState,
                     })
                   }
-                  className="rounded-md bg-accent px-4 py-2 text-sm font-bold text-white"
+                  // 부분 실패면 성공한 저장소 보기가 주 버튼이고, 다시 분석은 보조 버튼으로 남긴다.
+                  className={
+                    hasSucceededRepos
+                      ? 'rounded-md border border-line px-4 py-2 text-sm'
+                      : 'rounded-md bg-accent px-4 py-2 text-sm font-bold text-white'
+                  }
                 >
                   {failure.label}
                 </button>

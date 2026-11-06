@@ -86,9 +86,13 @@ export default function RepoSelect() {
   const [selectedIds, setSelectedIds] = useState<string[] | null>(null);
 
   const result = resultQuery.data;
-  // 실패 카드만 선택을 막는다. 하나도 고를 수 없으면 버튼만 꺼진 채 출구가 없어진다.
-  const noSelectable = !!result && result.repositories.every((r) => r.status === 'failed');
-  const defaultSelected = result?.repositories.filter((r) => r.recommended).map((r) => r.id) ?? [];
+  // 서버 선택 조건은 L1 succeeded뿐이다(analysis-run.md 선택 가능 조건). partial·failed 카드는 막는다.
+  // 하나도 고를 수 없으면 버튼만 꺼진 채 출구가 없어진다.
+  const noSelectable = !!result && result.repositories.every((r) => r.status !== 'succeeded');
+  const defaultSelected =
+    result?.repositories
+      .filter((r) => r.recommended && r.status === 'succeeded')
+      .map((r) => r.id) ?? [];
   const selected = selectedIds ?? defaultSelected;
 
   function toggle(id: string) {
@@ -171,22 +175,22 @@ export default function RepoSelect() {
                   <ul className="mt-3 flex flex-col gap-2">
                     {result.repositories.map((repo) => {
                       const checked = selected.includes(repo.id);
-                      const failed = repo.status === 'failed';
+                      const unselectable = repo.status !== 'succeeded';
                       return (
                         <li key={repo.id}>
                           <button
                             type="button"
-                            disabled={failed}
+                            disabled={unselectable}
                             onClick={() => toggle(repo.id)}
                             className={
-                              failed
+                              unselectable
                                 ? 'flex w-full gap-2.5 rounded-lg border border-line-soft bg-paper px-3 py-2.5 text-left opacity-60'
                                 : checked
                                   ? 'flex w-full gap-2.5 rounded-lg border border-accent bg-accent-soft px-3 py-2.5 text-left'
                                   : 'flex w-full gap-2.5 rounded-lg border border-line-soft px-3 py-2.5 text-left'
                             }
                           >
-                            {!failed && (
+                            {!unselectable && (
                               <span
                                 className={
                                   checked
@@ -225,9 +229,11 @@ export default function RepoSelect() {
                                 </span>
                               )}
                               <span className="mt-1 block text-[11.5px] text-muted">
-                                {failed
+                                {unselectable
                                   ? (REPO_ERROR_MESSAGES[repo.errorCode ?? ''] ??
-                                    '분석에 실패했어요')
+                                    (repo.status === 'failed'
+                                      ? '분석에 실패했어요'
+                                      : '면접 대상으로 선택할 수 없어요'))
                                   : repo.recommendReason}
                               </span>
                             </span>
