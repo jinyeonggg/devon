@@ -14,7 +14,7 @@ import {
   postingUrlFrom,
   type AnalysisInputState,
 } from '@/features/analysis/steps';
-import type { StepKey, StepStatus } from '@/types/api';
+import { isApiError, type StepKey, type StepStatus } from '@/types/api';
 
 type FailureAction = 'relink' | 'input' | 'none';
 
@@ -122,6 +122,11 @@ export default function AnalysisFailed() {
     retry: false,
   });
   const hasSucceededRepos = !!resultQuery.data?.repositories.some((r) => r.status === 'succeeded');
+  // 409 not_ready는 결과가 없는 실패 run이다. 그 밖의 조회 오류(5xx·네트워크)는 부분 실패 여부를 모르는
+  // 상태라 버튼을 숨긴 채 끝내지 않고 다시 불러오게 한다.
+  const resultLoadFailed =
+    resultQuery.isError &&
+    !(isApiError(resultQuery.error) && resultQuery.error.error.reason === 'not_ready');
   // 결과 조회 전에 그리면 기본 안내가 보였다가 부분 실패 안내로 바뀌므로 조회가 끝난 뒤 안내와 버튼을 그린다.
   const ready = failed && !resultQuery.isPending;
   const message = hasSucceededRepos ? PARTIAL_MESSAGE : failure.message;
@@ -160,6 +165,18 @@ export default function AnalysisFailed() {
               className="rounded-card border border-error-soft bg-error-soft px-4 py-3 text-sm text-error"
             >
               {message}
+            </div>
+          )}
+          {ready && resultLoadFailed && (
+            <div className="flex flex-col gap-3">
+              <p className="text-sm text-error">분석 결과를 불러오지 못했어요.</p>
+              <button
+                type="button"
+                onClick={() => void resultQuery.refetch()}
+                className="self-start rounded-md border border-line px-4 py-2 text-sm"
+              >
+                결과 다시 불러오기
+              </button>
             </div>
           )}
 

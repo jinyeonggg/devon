@@ -283,6 +283,43 @@ test('부분 실패 run은 결과 조회 전에 기본 실패 안내를 그리�
   expect(seen.filter((text) => text.includes('일시적인 문제'))).toEqual([]);
 });
 
+test('부분 실패 run의 결과에 성공한 저장소가 없으면 성공한 저장소 보기 버튼을 보여주지 않는다', async ({
+  page,
+}) => {
+  // 결과 조회는 200이지만 모든 저장소가 실패다. 버튼 조건은 응답 성공이 아니라 succeeded 저장소 유무다.
+  await page.addInitScript(() => localStorage.setItem('msw.result', 'all-failed'));
+  const result = page.waitForResponse((response) =>
+    response.url().endsWith(`/analysis-runs/${PARTIAL_RUN}/result`),
+  );
+  await page.goto(`/interview/failed/${PARTIAL_RUN}`);
+  expect((await result).status()).toBe(200);
+  await expect(page.getByRole('alert')).toHaveText(
+    '분석 중 일시적인 문제가 생겼어요. 다시 시도해주세요.',
+  );
+  await expect(page.getByRole('button', { name: '분석에 성공한 저장소 보기' })).toHaveCount(0);
+});
+
+test('부분 실패 run의 결과 조회가 실패하면 다시 불러와 성공한 저장소 선택으로 이어진다', async ({
+  page,
+}) => {
+  // 일시적인 5xx 한 번으로 성공한 저장소 진입로가 사라지면 안 된다. 409 not_ready와 구분한다.
+  await faults(page, [
+    {
+      path: `/analysis-runs/${PARTIAL_RUN}/result`,
+      method: 'GET',
+      status: 500,
+      reason: 'internal_error',
+      times: 1,
+    },
+  ]);
+  await page.goto(`/interview/failed/${PARTIAL_RUN}`);
+  await expect(page.getByText('분석 결과를 불러오지 못했어요.')).toBeVisible();
+  await expect(page.getByRole('button', { name: '분석에 성공한 저장소 보기' })).toHaveCount(0);
+  await page.getByRole('button', { name: '결과 다시 불러오기' }).click();
+  await page.getByRole('button', { name: '분석에 성공한 저장소 보기' }).click();
+  await expect(page).toHaveURL(new RegExp(`/interview/repos/${PARTIAL_RUN}$`));
+});
+
 test('결과가 없는 실패 run은 성공한 저장소 보기 버튼을 보여주지 않는다', async ({ page }) => {
   const result = page.waitForResponse((response) =>
     response.url().endsWith(`/analysis-runs/${FAILED_RUN}/result`),
