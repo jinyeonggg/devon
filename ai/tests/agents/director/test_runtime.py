@@ -365,14 +365,14 @@ def test_verification_decision_requests_only_validated_current_locations():
 @pytest.mark.parametrize(
     "needs,supported,reason",
     [
-        (False, False, "답변 분석이 추가 확인 불필요로 판단"),
+        (False, False, "추가 조회 조건을 충족하지 않아 조회하지 않음"),
         (True, True, "요청한 주장이 모두 등록 근거로 지지됨"),
     ],
 )
-def test_verification_skips_unneeded_or_already_supported_claims_with_a_reason(
+def test_verification_skips_unmet_conditions_or_supported_claims_with_a_reason(
     needs, supported, reason
 ):
-    # 미조회는 None 대신 사유를 반환해 정상 조회 후 미발견(not_found)과 구분한다.
+    # 조건 2·3 중 어느 것이 미충족인지 추정하지 않으며 미조회와 실제 미발견을 구분한다.
     assert (
         runtime().verification_decision(
             later_context(
