@@ -165,4 +165,4 @@ async def test_skipped_lookup_reason_is_kept_apart_from_not_found_without_io():
         None, uuid4(), uuid4(), context, checked, frozenset(), [], None, None, None
     )
     assert result is None
-    assert summary == "근거 미조회; 이유: 답변 분석이 추가 확인 불필요로 판단"
+    assert summary == "근거 미조회; 이유: 추가 조회 조건을 충족하지 않아 조회하지 않음"

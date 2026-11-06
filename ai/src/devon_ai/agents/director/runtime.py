@@ -415,7 +415,8 @@ def verification_decision(
             raise c.ContractError("semantic", "allowed location ref")
     value = analysis.data
     if not value.needs_verification:
-        return "답변 분석이 추가 확인 불필요로 판단"
+        # 필요성·영향·허용 범위 중 미충족 조건을 계약에 없는 정보로 단정하지 않는다.
+        return "추가 조회 조건을 충족하지 않아 조회하지 않음"
     registered = frozenset(ref.id for ref in _references(context, {}) if ref.kind == "evidence")
     supported = {
         claim.claim_text
