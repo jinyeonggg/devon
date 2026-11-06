@@ -11,15 +11,16 @@ def output(score=50, **by_key):
     return {"totalScore": total, "scores": scores}
 
 
-def case(case_id, role=None, status="approved", kind="report", key="technical_reasoning", gap=10):
+def case(case_id, role=None, status="approved", kind="report", key="technical_reasoning", gap=10,
+         version=1, pair_id="rp-1"):  # fmt: skip
     expectation = {
         "review": {"status": status, "author": "a", "reviewer": "b", "reviewed_at": "d",
                    "pending_notes": []},
         "allowed": [], "forbidden": [], "grader_controls": [],
     }  # fmt: skip
     if role:
-        expectation["pair"] = {"pair_id": "rp-1", "role": role, "key": key, "min_gap": gap}
-    return Case(case_id, 1, kind, "dev", "sg-1", {}, expectation)
+        expectation["pair"] = {"pair_id": pair_id, "role": role, "key": key, "min_gap": gap}
+    return Case(case_id, version, kind, "dev", "sg-1", {}, expectation)
 
 
 def pair_cases(**options):
@@ -120,3 +121,29 @@ def test_unapproved_pairs_stay_out_of_the_quality_count_by_default():
 def test_other_case_kinds_are_ignored():
     report = grade_reports([case("q-1", kind="question")], {})
     assert report["report_cases"] == 0 and report["evaluated_pairs"] == 0
+
+
+def test_versions_of_one_case_id_keep_their_own_outputs():
+    # v1 pair fails, v2 pair passes; keyed by case_id alone both would read the v2 outputs
+    cases = [
+        case("r-1", "stronger", version=1), case("r-2", "weaker", version=1),
+        case("r-1", "stronger", version=2, pair_id="rp-2"),
+        case("r-2", "weaker", version=2, pair_id="rp-2"),
+    ]  # fmt: skip
+    given = {
+        "r-1.v1": output(technical_reasoning=20), "r-2.v1": output(technical_reasoning=90),
+        "r-1.v2": output(technical_reasoning=90), "r-2.v2": output(technical_reasoning=20),
+        "r-2.v3": {"totalScore": 5, "scores": []},
+    }  # fmt: skip
+    report = grade_reports(cases, given)
+    assert report["pairs"]["pass"] == 1 and report["pairs"]["fail"] == 1
+    assert [d["outcome"] for d in report["details"]] == ["fail", "pass"]
+    del given["r-1.v1"], given["r-2.v2"]  # a missing output stays with its own version
+    assert [d["outcome"] for d in grade_reports(cases, given)["details"]] == [
+        "missing_output",
+        "missing_output",
+    ]
+    given["r-1.v1"], given["r-2.v1"] = output(), {"totalScore": 5, "scores": []}
+    report = grade_reports(cases, given)
+    assert report["details"][0]["outcome"] == "invalid_output"
+    assert list(report["form_invalid"]) == ["r-2.v1"]

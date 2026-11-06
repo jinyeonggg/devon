@@ -38,6 +38,10 @@ def check_form(output: Any) -> list[str]:
     return problems
 
 
+def _stem(case: Case) -> str:
+    return f"{case.case_id}.v{case.version}"  # case_id alone would merge v1 and v2
+
+
 def _key_score(output: Mapping[str, Any], key: str) -> int:
     return int(next(item["score"] for item in output["scores"] if item["key"] == key))
 
@@ -52,11 +56,10 @@ def grade_reports(
     counted apart and are not passes. With only_approved, a pair needs both cases approved to count.
     """
     reports = [case for case in cases if case.kind == "report"]
-    stem = {case.case_id: f"{case.case_id}.v{case.version}" for case in reports}
     form = {
-        stem[case.case_id]: problems
+        _stem(case): problems
         for case in reports
-        if stem[case.case_id] in outputs and (problems := check_form(outputs[stem[case.case_id]]))
+        if _stem(case) in outputs and (problems := check_form(outputs[_stem(case)]))
     }
     pairs: dict[str, list[Case]] = {}
     for case in reports:
@@ -71,7 +74,7 @@ def grade_reports(
             excluded[sorted(statuses - {"approved"})[0]] += 1
             continue
         pair = members[0].expectation["pair"]
-        by_role = {case.expectation["pair"]["role"]: stem[case.case_id] for case in members}
+        by_role = {case.expectation["pair"]["role"]: _stem(case) for case in members}
         strong, weak = (outputs.get(by_role[role]) for role in ("stronger", "weaker"))
         gap = None
         if strong is None or weak is None:
@@ -96,7 +99,7 @@ def grade_reports(
         "pairs": {o: counts[o] for o in OUTCOMES},
         "evaluated_pairs": sum(counts.values()),
         "excluded_pairs": dict(excluded),
-        "unpaired_cases": sorted(stem[c.case_id] for c in reports if "pair" not in c.expectation),
+        "unpaired_cases": sorted(_stem(c) for c in reports if "pair" not in c.expectation),
         "form_invalid": form,
         "details": details,
     }
