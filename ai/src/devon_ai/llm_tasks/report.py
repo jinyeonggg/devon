@@ -319,7 +319,8 @@ async def generate_report(
         raise c.ContractError("schema", "limits")
     report_score.check_input(score_turns, rubric)
     c.validate_report_input(report_input)
-    # 두 task는 서로의 결과를 입력으로 받지 않아 동시에 호출한다(worker 지연이 모델 1회분이 된다).
+    # 두 task는 서로의 결과를 입력으로 받지 않아 동시에 호출한다.
+    # 실제 지연·비용은 호출 metadata와 서비스 측정으로 확인한다.
     # 실패는 예외가 아니라 ModelResult로 오므로 둘 다 끝난 뒤 점수 판정부터 확인한다.
     judged_result, narrative_result = await asyncio.gather(
         report_score.judge_scores(
