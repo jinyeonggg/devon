@@ -177,10 +177,62 @@ def test_a_missing_prompt_is_rejected(run):
 def test_an_unanswered_turn_is_sent_as_null_and_judged_not_dropped(run):
     turns = payload()["turns"]
     turns[4]["answer"] = ""  # BE는 답하지 않은 턴을 빈 문자열로 보낸다
-    raw, (score, narrative) = run(payload(turns=turns))
+    output = score_output()
+    for judgment in output["judgments"]:
+        if judgment["turn_id"] == "5":
+            judgment["level"] = 0
+    raw, (score, narrative) = run(payload(turns=turns), score=output)
     assert score.requests[0].payload["turns"][4]["answer"] is None
     assert narrative.requests[0].payload["turns"][4]["answer"] is None
     assert raw["scores"]["communication"]["evidence_turn_nos"] == list(range(1, 10))
+    assert raw["scores"]["communication"]["score"] == 62
+
+
+@pytest.mark.parametrize("level", [1, 2, 3, 4])
+def test_unanswered_domain_answers_cannot_become_positive_report_scores(run, level):
+    turns, output = payload()["turns"], score_output()
+    for index in (3, 6):
+        turns[index]["answer"] = ""
+    for judgment in output["judgments"]:
+        if judgment["turn_id"] in ("4", "7"):
+            judgment["level"] = level
+    with pytest.raises(c.ContractError) as error:
+        run(payload(turns=turns), score=output)
+    assert error.value.stage == "semantic"
+
+
+def test_unanswered_domain_answers_can_keep_zero_instead_of_an_invented_score(run):
+    turns, output = payload()["turns"], score_output()
+    for index in (3, 6):
+        turns[index]["answer"] = ""
+    for judgment in output["judgments"]:
+        if judgment["turn_id"] in ("4", "7"):
+            judgment["level"] = 0
+    raw, _ = run(payload(turns=turns), score=output)
+    assert raw["scores"]["company_job_fit"]["score"] == 0
+    assert raw["scores"]["company_job_fit"]["evidence_turn_nos"] == [4, 7]
+
+
+def test_an_unanswered_unobserved_domain_turn_is_excluded_from_the_score(run):
+    turns, output = payload()["turns"], score_output()
+    turns[3]["answer"] = ""
+    for judgment in output["judgments"]:
+        if judgment["turn_id"] == "4":
+            judgment["level"] = "not_applicable"
+    raw, _ = run(payload(turns=turns), score=output)
+    assert raw["scores"]["company_job_fit"]["score"] == 70
+    assert raw["scores"]["company_job_fit"]["evidence_turn_nos"] == [7]
+
+
+def test_unanswered_domain_answers_all_not_applicable_still_fail_without_defaulting(run):
+    turns, output = payload()["turns"], score_output()
+    for index in (3, 6):
+        turns[index]["answer"] = ""
+    for judgment in output["judgments"]:
+        if judgment["turn_id"] in ("4", "7"):
+            judgment["level"] = "not_applicable"
+    with pytest.raises(c.ContractError, match="unscorable key"):
+        run(payload(turns=turns), score=output)
 
 
 def test_the_narrative_request_carries_each_turns_question_contract(run):
