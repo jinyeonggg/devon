@@ -1,6 +1,7 @@
 """면접 준비의 고정 SHA 대조, primary 범위, run partial, L2 준비 성공 기준과
 캐시 재사용 조건(task-05)을 실제 PostgreSQL로 확인한다."""
 
+import asyncio
 from dataclasses import asdict, replace
 from uuid import UUID, uuid4
 
@@ -19,7 +20,18 @@ from app.db.models import (
     SessionRepository,
 )
 from app.db.models import Repository as RepositoryRow
-from tests.agents.test_director_prepare import PATH, Transport, area, deep, run, shallow
+from tests.agents.test_director_prepare import (
+    BLOB,
+    PATH,
+    TREE,
+    Transport,
+    area,
+    deep,
+    prepare,
+    run,
+    settings,
+    shallow,
+)
 from tests.agents.test_director_prepare import ready as ready
 
 SAMPLE = "owner/sample"
@@ -258,16 +270,45 @@ async def test_one_verified_primary_is_enough_and_invalid_repo_adds_no_evidence(
         assert sources == {ready["repo_id"]}
 
 
-async def test_cached_l2_keeps_reread_areas_when_another_area_cannot_be_read(agent_sessions, ready):
+async def run_with_source_failure(sessions, seed, transport, failed_path, fault):
+    """실제 원문 수집 경로에서 파일 부재·HTTP 오류·전체 수집 시간 상한을 발생시킨다."""
+
+    async def respond(request):
+        if request.url.path == f"/repos/{SAMPLE}/contents/{failed_path}":
+            assert request.url.params["ref"] == seed["sha"]
+            if fault == "deadline":
+                await asyncio.Event().wait()
+            return httpx.Response(404 if fault == "missing" else 503)
+        response = await transport(request)
+        if request.url.path.endswith(f"/git/trees/{TREE}") and failed_path != PATH:
+            payload = response.json()
+            payload["tree"].append(dict(path=failed_path, mode="100644", type="blob", sha=BLOB))
+            return httpx.Response(200, json=payload)
+        return response
+
+    config = settings().model_copy(update={"director_prepare_timeout_seconds": 0.1})
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+        return await prepare()(
+            sessions,
+            user_id=seed["owner"],
+            interview_id=seed["interview_id"],
+            settings=config,
+            http_client=http,
+        )
+
+
+@pytest.mark.parametrize("fault", ["missing", "http_error", "deadline"])
+async def test_cached_l2_keeps_reread_areas_when_another_area_cannot_be_read(
+    agent_sessions, ready, fault
+):
     missing = dict(area(), path="missing.py", observation="사라진 파일")
+    cached = dict(analysis=deep(ready) | dict(notable_areas=[area(), missing]), rejected_areas=[])
     async with agent_sessions.begin() as db:
         row = await db.scalar(select(RepoAnalysis).where(RepoAnalysis.analysis_level == "l2"))
         row.notable_areas = [area(), missing]
-        row.result = dict(
-            analysis=deep(ready) | dict(notable_areas=[area(), missing]), rejected_areas=[]
-        )
+        row.result = cached
     transport = Transport(ready)
-    assert await run(agent_sessions, ready, transport)
+    assert await run_with_source_failure(agent_sessions, ready, transport, "missing.py", fault)
     # 다시 읽지 못한 area만 근거에서 빼고 한계로 남긴다. 저장소 전체를 버리거나 재분석하지 않는다
     # (0008 L2 관찰 분리, 0010 유효 area 1개 이상이면 준비 성공).
     assert transport.model_operations == ["plan", "review"]
@@ -277,6 +318,39 @@ async def test_cached_l2_keeps_reread_areas_when_another_area_cannot_be_read(age
         notes = interview.context_state["preparation_repository_limitations"][str(ready["repo_id"])]
         assert any("missing.py" in note for note in notes)
         assert "l2_cache_source_mismatch" not in notes
+        expected = {
+            "deadline": "시간 상한",
+            "missing": "github_file_unavailable",
+            "http_error": "github_http_503",
+        }[fault]
+        assert any(expected in note for note in notes)
+        row = await db.scalar(select(RepoAnalysis).where(RepoAnalysis.analysis_level == "l2"))
+        # 면접의 사용 범위만 좁히고 같은 SHA의 전역 캐시는 원래 관찰을 보존한다.
+        assert row.status == "succeeded" and row.result == cached
+        assert row.notable_areas == [area(), missing]
+
+
+@pytest.mark.parametrize("fault", ["missing", "http_error", "deadline"])
+async def test_cached_l2_without_any_reread_area_fails_without_reanalysis(
+    agent_sessions, ready, fault
+):
+    transport = Transport(ready)
+    assert not await run_with_source_failure(agent_sessions, ready, transport, PATH, fault)
+    expected = (
+        "repository_source_timeout" if fault == "deadline" else "repository_sources_unavailable"
+    )
+    assert await failure(agent_sessions, ready) == expected
+    assert transport.model_operations == []
+    async with agent_sessions() as db:
+        assert await db.scalar(select(func.count()).select_from(Evidence)) == 0
+        assert await db.scalar(select(InterviewTurn)) is None
+        interview = await db.get(InterviewSession, ready["interview_id"])
+        notes = interview.context_state["preparation_repository_limitations"][str(ready["repo_id"])]
+        assert expected in notes
+        assert any(PATH in note for note in notes)
+        row = await db.scalar(select(RepoAnalysis).where(RepoAnalysis.analysis_level == "l2"))
+        assert row.status == "succeeded" and row.notable_areas == [area()]
+        assert row.result == dict(analysis=deep(ready), rejected_areas=[])
 
 
 @pytest.mark.parametrize("field", ["prompt_version", "head_sha"])
