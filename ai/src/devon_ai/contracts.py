@@ -1277,6 +1277,13 @@ def validate_score_judgments(
     _unique(pairs, "judgment")
     if set(pairs) != expected:
         raise ContractError("semantic", "judgment pairs")
+    unanswered = {turn.turn_id for turn in turns if turn.answer is None}
+    # 미답변에 양의 단계를 준 후보는 보정하지 않고 거절한다. 질문 범위에 따른 0/NA는 유지한다.
+    if any(
+        item.turn_id in unanswered and item.level not in (0, "not_applicable")
+        for item in candidate.judgments
+    ):
+        raise ContractError("semantic", "unanswered turn level")
     scored = {item.key for item in candidate.judgments if item.level != "not_applicable"}
     if scored != set(get_args(ScoreKeyId)):
         raise ContractError("semantic", "unscorable key")
