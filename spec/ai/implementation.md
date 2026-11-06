@@ -1,5 +1,58 @@
 # AI 구현·검증 기록
 
+## 2026-11-06 — #180·#182·#191·#193·#194 리뷰 후속과 통합 검증
+
+사용자가 #183을 제외한 다섯 PR의 필수·선택 보완, 리뷰 답변과 병합을 승인했다.
+각 원본 HEAD와 작업 환경을 보존하고 기존 PR에 후속 커밋만 추가했다. 초기 설계는 수정하지 않았다.
+
+### 변경과 게시 경계
+
+| PR | 이번 후속 보완 |
+| --- | --- |
+| [#180](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/pull/180) | 단계 설명 0~4 정정, 신규 비활성/기존 활성 유지 설명, 실제 PostgreSQL에서 활성·비활성 rubric 갱신 회귀. 기존 SQL·환산표·활성화 정책은 유지 |
+| [#182](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/pull/182) | 미답변 `None`에 양의 단계 1~4를 준 후보를 semantic 실패로 거절. 0/NA·전체 미관찰 key 실패와 이전 6건 수정을 보존 |
+| [#191](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/pull/191) | 미조회 사유를 조회 조건 미충족으로 표현. 원인을 임의 추정하지 않고 AI·BE 저장 회귀의 기대값을 동기화 |
+| [#193](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/pull/193) | 404·503·실제 수집 deadline의 부분 성공/원문 0개 실패 회귀. 제품 코드는 유지하고 전역 캐시 불변·모델 비재호출을 검사 |
+| [#194](https://github.com/kakaotechcampus-4/ktc4-chonnam-3/pull/194) | #182 후속을 merge ancestry로 반영. 동시 task 각각의 실패가 부분 리포트로 반환되지 않으며 별도 callable을 받는지 검사. 다섯 PR의 기록을 이 절 한 곳에 통합 |
+
+#183과 선행 #175, BE #153 등 다른 PR은 이번 수정·병합 대상에서 제외했다.
+#194의 선행은 #182다. 선행 병합 뒤 develop 기준 신규 diff·CI를 확인하는 절차를 적용한다.
+실제 게시 HEAD와 병합 결과는 각 PR의 원격 commit·review·merge 기록으로 확인한다.
+
+### 이번 실행
+
+기존 Python 3.12 환경에 각 격리 worktree의 BE·AI 소스 경로를 명시했다.
+전용 PostgreSQL 17·Redis 컨테이너와 테스트 DB를 사용했으며 실제 서비스 DB나 외부 모델은 호출하지 않았다.
+
+| 범위 | 새 실행 결과 |
+| --- | --- |
+| #180 seed 3파일 | 실제 PostgreSQL 17에서 17 passed. BE Ruff·format·mypy 통과 |
+| #182 수정 전/후 | 양의 단계 반례 8개 실패 후 수정. 관련 74개·AI 전체 552개 통과, BE import 1개 통과 |
+| #182 출력 호환 | 실제 AI 생성과 BE #153 `32aec12` 출력 검증기 7개 시나리오 통과. DB 저장 검사가 아님 |
+| #191 AI·BE | AI 전체 430개, BE import 1개, 실제 PostgreSQL 경계·9턴 저장 25개 통과. AI·BE 정적 검사 통과 |
+| #193 실제 수집·저장 | 관련 3파일 39개 통과. area 필터 제거 변형에서 부분 성공 3개 실패 후 제품 파일 정확 복원 |
+| #194 개별 AI | 후속·동시 실패 검사 포함 AI 전체 555개, Ruff·format·mypy 통과 |
+| 최신 develop+다섯 변경 결합 AI | 557 passed. Ruff·format·mypy 18개 소스 통과 |
+| 같은 결합본 BE 전체 | 1673 passed, 1 skipped, 7 warnings. 격리 PostgreSQL·Redis, 외부 API는 대역 |
+| 결합본 BE 정적 검사 | Ruff·format 통과, mypy 163개 소스 통과 |
+| 공통 계약 checker | 별도 기존 checker 환경에서 schema 2개·부분 OpenAPI·fixture 7개 PASS. 전체 API 호환성 검사는 아님 |
+
+통합 검증은 `develop@c70c444`에 #180 `0ffab4f`, #182 `1cf8324`, #191 `0601e39`,
+#193 `4b38a90`, #194 `9d9b7cf`의 내용을 결합한 tree `5c4c8724ef82c4e5a9d416f9afec328be8666154` 기준이다.
+현재 절의 문서 변경은 위 제품 코드·테스트 실행 결과를 바꾸지 않는다.
+
+원격 #191의 최초 `08a11ff` CI는 BE 옛 기대 문구 두 곳으로 2 failed였다. 이를 `0601e39`에서
+동기화한 뒤 새 CI가 1664 passed·1 skipped로 통과했다. 최초 실패를 숨기거나 과거 결과로 대체하지 않았다.
+다른 새 HEAD의 원격 BE CI도 #180 1667개·#182 1664개·#193 1670개 통과와 migration 성공을 확인했다.
+
+### 남은 서비스 검수
+
+준비 코드 병합을 #110 전체 완료·독립 도메인 검수·rubric 운영 활성화로 보지 않는다.
+수정 문구 재판정·실제 모델 일관성·품질·비용·지연, 환경별 prompt 등록,
+실제 GitHub·음성 provider·FE 브라우저 전체 서비스는 이번 검증으로 완료 처리하지 않았다.
+BE #153의 미답변 테스트 `None` 전달 정합성과 실제 report worker 저장·프로필 연결도 별도 후속이다.
+원래 인라인 스레드와 일반 리뷰에 새 커밋·검증·후속 범위를 답했으며 종합 리뷰와 상호 연결한다.
+
 ## 2026-10-25 — 미게시 면접 실행과 후속 보완의 Draft 게시
 
 ### 원본과 신규 범위
