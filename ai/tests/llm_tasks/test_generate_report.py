@@ -165,6 +165,42 @@ def test_the_two_tasks_run_concurrently(kit):
     assert raw["scores"]
 
 
+@pytest.mark.parametrize("failed_schema", ["ScoreJudgments", "ReportNarrative"])
+def test_a_concurrent_task_failure_cannot_return_a_partial_report(kit, failed_schema):
+    started, completed, calls = [], [], []
+    release = asyncio.Event()
+
+    def factory():
+        task_calls = []
+        calls.append(task_calls)
+
+        async def call(request, validator):
+            task_calls.append(request.schema_name)
+            started.append(request.schema_name)
+            if len(started) == 2:
+                release.set()
+            await asyncio.wait_for(release.wait(), 1)
+            completed.append(request.schema_name)
+            if request.schema_name == failed_schema:
+                failure = c.CallFailure("timeout", "llm_timeout", "검증용 timeout")
+                return c.ModelResult(None, failure, (kit.metadata(),))
+            raw = score_output() if request.schema_name == "ScoreJudgments" else narrative_output()
+            return c.ModelResult(validator(raw), None, (kit.metadata(),))
+
+        return call
+
+    # 두 task가 별도 callable을 받고 모두 끝나도 한쪽 실패를 성공 리포트로 바꾸지 않는다.
+    with pytest.raises(c.ContractError) as error:
+        asyncio.run(
+            report.generate_report(
+                payload(), prompts=PROMPTS, limits=LIMITS, model_call_factory=factory
+            )
+        )
+    assert error.value.field == "llm_timeout"
+    assert sorted(completed) == ["ReportNarrative", "ScoreJudgments"]
+    assert calls == [["ScoreJudgments"], ["ReportNarrative"]]
+
+
 @pytest.mark.parametrize(
     "bad",
     [
