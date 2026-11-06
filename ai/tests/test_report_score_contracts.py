@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from devon_ai import contracts as c
@@ -108,3 +110,27 @@ def test_rubric_level_range():
     c.RubricLevel("communication", 0, "text")
     with pytest.raises(c.ContractError):
         c.RubricLevel("communication", 5, "text")
+
+
+@pytest.mark.parametrize("level", [1, 2, 3, 4])
+def test_an_unanswered_turn_cannot_receive_a_positive_level(level):
+    turn_list = tuple(replace(t, answer=None) if t.turn_id == "turn-4" else t for t in turns())
+    candidate = c.ScoreJudgments(
+        tuple(
+            replace(j, level=level) if j.turn_id == "turn-4" else j for j in judgments().judgments
+        )
+    )
+    with pytest.raises(c.ContractError) as error:
+        check(candidate, turn_list)
+    assert error.value.stage == "semantic"
+
+
+@pytest.mark.parametrize("level", [0, "not_applicable"])
+def test_an_unanswered_turn_preserves_zero_or_not_applicable_without_rewriting(level):
+    turn_list = tuple(replace(t, answer=None) if t.turn_id == "turn-4" else t for t in turns())
+    candidate = c.ScoreJudgments(
+        tuple(
+            replace(j, level=level) if j.turn_id == "turn-4" else j for j in judgments().judgments
+        )
+    )
+    assert check(candidate, turn_list).data == candidate
