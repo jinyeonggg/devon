@@ -72,3 +72,5 @@ def test_analysis_worker_settings_define_arq_keys_in_own_dict():
     own = analysis_app.WorkerSettings.__dict__
     for key in ("redis_settings", "on_startup", "on_shutdown", "job_timeout", "max_tries"):
         assert key in own
+    # 키만 있고 값이 localhost 기본값으로 바뀌는 경우도 잡는다.
+    assert own["redis_settings"] is arq_app.WorkerSettings.redis_settings
